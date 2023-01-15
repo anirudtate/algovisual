@@ -1,6 +1,6 @@
 import { OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
-import { button, useControls } from 'leva';
+import { button, buttonGroup, Leva, useControls } from 'leva';
 import { Perf } from 'r3f-perf';
 import { MutableRefObject, useEffect, useRef } from 'react';
 import { BoxGeometry, Color, InstancedMesh, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D } from 'three';
@@ -13,15 +13,18 @@ const BASEMATERIAL = new MeshStandardMaterial({ color: BASECOLOR });
 const BARMATERIAL = new MeshStandardMaterial({ color: BARCOLOR });
 const BOXGEOMETRY = new BoxGeometry();
 const color = new Color();
-let bars: MutableRefObject<Array<Mesh|null>>;
-let barMaterials: MutableRefObject<Array<MeshStandardMaterial|null>>;
+let isSorting = false;
+let bars: MutableRefObject<Array<Mesh | null>>;
+let barMaterials: MutableRefObject<Array<MeshStandardMaterial | null>>;
 let array: Array<number> = [];
+let arrayCopy: Array<number> = [];
+let algorithm = selectionSort;
 
 export default function App() {
   return (
     <div className='canvas'>
       <Canvas>
-        <Perf position="top-left"/>
+        <Perf position="top-left" />
         <Visualizer />
         <OrbitControls />
         <directionalLight position={[1, 2, 3]} intensity={1.5} />
@@ -32,66 +35,56 @@ export default function App() {
   )
 }
 
-// function Box() {
-//   const ref = useRef<Array<Mesh|null>>([]);
-//   const material = useRef<Array<MeshStandardMaterial|null>>([]);
-//   useEffect(()=>{
-//     if (material.current && material.current[1]) {
-//       material.current[1].color = color.set("red");
-//       material.current[1].needsUpdate = true;
-//     }
-//   },[])
-//   return (
-//     <>
-//     <mesh position={[1,0,0]} ref={el=>ref.current[0]=el}>
-//       <boxBufferGeometry />
-//       <meshStandardMaterial ref={el=>material.current[0]=el} color="blue" />
-//     </mesh>
-//     <mesh position={[-1,0,0]} ref={el=>ref.current[1]=el}>
-//       <boxBufferGeometry />
-//       <meshStandardMaterial ref={el=>material.current[1]=el} color="blue" />
-//     </mesh>
-//     </>
-//   )
-// }
-
-let delayTime=0.5/10;
+let delayTime = 1 / 10;
 function Visualizer() {
-  bars = useRef<Array<Mesh|null>>([]);
-  barMaterials = useRef<Array<MeshStandardMaterial|null>>([]);
-  const { count } = useControls({
-    count: {
+  dbg("render");
+  bars = useRef<Array<Mesh | null>>([]);
+  barMaterials = useRef<Array<MeshStandardMaterial | null>>([]);
+  const {count} = useControls({
+    sort: button(() => { (!isSorting)?algorithm() :null }),
+    reset: button(()=>{reset(count)}),
+    speed: {
+      value: 10,
+      min: 1,
+      max: 100,
+      step: 1,
+      onChange: ((v) => { delayTime = 1 / v }),
+    },
+    algorithm: {
+      options: {
+        "selection sort": selectionSort,
+        "bubble sort": bubbleSort,
+      },
+      onChange: ((v: () => Promise<void>)=>{algorithm=v}),
+    },
+    count : {
       value: 10,
       min: 1,
       max: 100,
       step: 1,
     },
-    speed: {
-      value: 3,
-      min: 1,
-      max: 100,
-      step: 1,
-      onChange: ((v: number)=>{ delayTime=0.5/v }),
-    },
-    selectionSort: button(() => { selectionSort() })
   })
-  array=randArray(count);
+  array = randArray(count);
   useEffect(() => {
-    array = randArray(count);
-    const offset = ((count - 1) * 1.5) / 2;
-    for(let i=0;i<count;i++){
-      bars.current[i]?.position.set((i * 1.5) - offset, array[i] / 2, 0);
-      bars.current[i]?.scale.set(1, array[i], 1);
-      barMaterials.current[i]?.color.set(BARCOLOR);
+    if(!isSorting){
+      // array = randArray(count);
+      arrayCopy = array;
+      arrayCopy = [...array];
+      const offset = ((count - 1) * 1.5) / 2;
+      for (let i = 0; i < count; i++) {
+        bars.current[i]?.position.set((i * 1.5) - offset, array[i] / 2, 0);
+        bars.current[i]?.scale.set(1, array[i], 1);
+        barMaterials.current[i]?.color.set(BARCOLOR);
+      }
     }
   }, [count])
   return (
     <>
       {/* BARS */}
-      {array.map((value,i)=>(
-        <mesh key={i} ref={e => bars.current[i]=e}>
+      {array.map((value, i) => (
+        <mesh key={i} ref={e => bars.current[i] = e}>
           <boxBufferGeometry />
-          <meshStandardMaterial color={BARCOLOR} ref={e=>barMaterials.current[i]=e}/>
+          <meshStandardMaterial color={BARCOLOR} ref={e => barMaterials.current[i] = e} />
         </mesh>
       ))}
       {/* BASE */}
@@ -105,14 +98,27 @@ function Visualizer() {
   )
 }
 
+function reset(count : number) {
+  dbg(count);
+  dbg(arrayCopy);
+  array = [...arrayCopy];
+  const offset = ((count - 1) * 1.5) / 2;
+  for (let i = 0; i < count; i++) {
+    bars.current[i]?.position.set((i * 1.5) - offset, array[i] / 2, 0);
+    bars.current[i]?.scale.set(1, array[i], 1);
+    barMaterials.current[i]?.color.set(BARCOLOR);
+  }
+}
+
 async function selectionSort() {
+  isSorting=true;
   dbg(delayTime);
   const n = array.length;
   for (let i = 0; i < n; i++) {
     let mn = n, mni = -1;
     for (let j = i; j < n; j++) {
-      setColor(i, "blue")
-      setColor(j, "blue")
+      setColor(i, "red")
+      setColor(j, "red")
       await delay(delayTime);
       if (array[j] < mn) {
         mn = array[j];
@@ -123,18 +129,57 @@ async function selectionSort() {
       setColor(j, BARCOLOR)
     }
     // swap
-    let tmp = array[i];
-    array[i] = array[mni];
-    array[mni] = tmp;
-    setColor(i, "blue")
-    setColor(mni, "blue")
-    await delay(delayTime);
-    setHeight(i, array[i]);
-    setHeight(mni, array[mni]);
-    await delay(delayTime);
+    if(mni!=i){
+      let tmp = array[i];
+      array[i] = array[mni];
+      array[mni] = tmp;
+      setColor(i, "blue")
+      setColor(mni, "blue")
+      await delay(delayTime);
+      setHeight(i, array[i]);
+      setHeight(mni, array[mni]);
+      await delay(delayTime);
+    }
     setColor(mni, BARCOLOR)
     setColor(i, "green")
   }
+  isSorting=false;
+}
+
+async function bubbleSort() {
+  isSorting=true;
+  dbg(delayTime);
+  const n = array.length;
+  for (let i = 0; i < n; i++) {
+    let mn = n, mni = -1;
+    for (let j = i; j < n; j++) {
+      setColor(i, "black")
+      setColor(j, "black")
+      await delay(delayTime);
+      if (array[j] < mn) {
+        mn = array[j];
+        mni = j;
+      }
+      await delay(delayTime);
+      setColor(i, BARCOLOR)
+      setColor(j, BARCOLOR)
+    }
+    // swap
+    if(mni!=i){
+      let tmp = array[i];
+      array[i] = array[mni];
+      array[mni] = tmp;
+      setColor(i, "blue")
+      setColor(mni, "blue")
+      await delay(delayTime);
+      setHeight(i, array[i]);
+      setHeight(mni, array[mni]);
+      await delay(delayTime);
+    }
+    setColor(mni, BARCOLOR)
+    setColor(i, "green")
+  }
+  isSorting=false;
 }
 
 function setColor(i: number, c: string) {
@@ -142,7 +187,7 @@ function setColor(i: number, c: string) {
 }
 
 function setHeight(i: number, h: number) {
-  bars.current[i]?.position.setY(h/2);
+  bars.current[i]?.position.setY(h / 2);
   bars.current[i]?.scale.setY(h);
 }
 const delay = (s: number) => new Promise(
