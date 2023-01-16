@@ -2,7 +2,7 @@ import { OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { button, buttonGroup, Leva, useControls } from 'leva';
 import { Perf } from 'r3f-perf';
-import { MutableRefObject, useEffect, useRef } from 'react';
+import { MutableRefObject, useEffect, useRef, useState } from 'react';
 import { BoxGeometry, Color, InstancedMesh, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D } from 'three';
 import './App.css'
 
@@ -16,7 +16,7 @@ const color = new Color();
 let isSorting = false;
 let bars: MutableRefObject<Array<Mesh | null>>;
 let barMaterials: MutableRefObject<Array<MeshStandardMaterial | null>>;
-let array: Array<number> = [];
+let array: Array<number> = randArray(10);
 let arrayCopy: Array<number> = [];
 let algorithm = selectionSort;
 
@@ -36,13 +36,17 @@ export default function App() {
 }
 
 let delayTime = 1 / 10;
+let setSort: React.Dispatch<React.SetStateAction<boolean>>;
 function Visualizer() {
-  dbg("render");
+  const [sorting, setSorting] = useState(false);
+  const [count, setCount] = useState(10);
+  setSort = setSorting;
+  dbg(sorting);
   bars = useRef<Array<Mesh | null>>([]);
   barMaterials = useRef<Array<MeshStandardMaterial | null>>([]);
-  const {count} = useControls({
-    sort: button(() => { (!isSorting)?algorithm() :null }),
-    reset: button(()=>{reset(count)}),
+  useControls("Controls", {
+    sort: button(() => { (!isSorting) ? algorithm() : null }),
+    reset: button(() => { reset() }),
     speed: {
       value: 10,
       min: 1,
@@ -55,33 +59,36 @@ function Visualizer() {
         "selection sort": selectionSort,
         "bubble sort": bubbleSort,
       },
-      onChange: ((v: () => Promise<void>)=>{algorithm=v}),
+      onChange: ((v: () => Promise<void>) => { algorithm = v }),
     },
-    count : {
+  })
+  useControls('Customize', {
+    count: {
       value: 10,
       min: 1,
       max: 100,
       step: 1,
+      disabled: sorting,
+      onChange: ((v) => setCount(v))
     },
-  })
-  array = randArray(count);
+  }, {
+    collapsed: sorting,
+  }, [sorting]);
   useEffect(() => {
-    if(!isSorting){
-      // array = randArray(count);
-      arrayCopy = array;
-      arrayCopy = [...array];
-      const offset = ((count - 1) * 1.5) / 2;
-      for (let i = 0; i < count; i++) {
-        bars.current[i]?.position.set((i * 1.5) - offset, array[i] / 2, 0);
-        bars.current[i]?.scale.set(1, array[i], 1);
-        barMaterials.current[i]?.color.set(BARCOLOR);
-      }
+    array = randArray(count);
+    arrayCopy = array;
+    arrayCopy = [...array];
+    const offset = ((count - 1) * 1.5) / 2;
+    for (let i = 0; i < count; i++) {
+      bars.current[i]?.position.set((i * 1.5) - offset, array[i] / 2, 0);
+      bars.current[i]?.scale.set(1, array[i], 1);
+      barMaterials.current[i]?.color.set(BARCOLOR);
     }
   }, [count])
   return (
     <>
       {/* BARS */}
-      {array.map((value, i) => (
+      {[...Array(count)].map((value, i) => (
         <mesh key={i} ref={e => bars.current[i] = e}>
           <boxBufferGeometry />
           <meshStandardMaterial color={BARCOLOR} ref={e => barMaterials.current[i] = e} />
@@ -98,9 +105,9 @@ function Visualizer() {
   )
 }
 
-function reset(count : number) {
-  dbg(count);
-  dbg(arrayCopy);
+function reset() {
+  const count = arrayCopy.length;
+  setSort(false);
   array = [...arrayCopy];
   const offset = ((count - 1) * 1.5) / 2;
   for (let i = 0; i < count; i++) {
@@ -111,7 +118,8 @@ function reset(count : number) {
 }
 
 async function selectionSort() {
-  isSorting=true;
+  setSort(true);
+  isSorting = true;
   dbg(delayTime);
   const n = array.length;
   for (let i = 0; i < n; i++) {
@@ -129,7 +137,7 @@ async function selectionSort() {
       setColor(j, BARCOLOR)
     }
     // swap
-    if(mni!=i){
+    if (mni != i) {
       let tmp = array[i];
       array[i] = array[mni];
       array[mni] = tmp;
@@ -143,11 +151,12 @@ async function selectionSort() {
     setColor(mni, BARCOLOR)
     setColor(i, "green")
   }
-  isSorting=false;
+  isSorting = false;
+  setSort(false);
 }
 
 async function bubbleSort() {
-  isSorting=true;
+  isSorting = true;
   dbg(delayTime);
   const n = array.length;
   for (let i = 0; i < n; i++) {
@@ -165,7 +174,7 @@ async function bubbleSort() {
       setColor(j, BARCOLOR)
     }
     // swap
-    if(mni!=i){
+    if (mni != i) {
       let tmp = array[i];
       array[i] = array[mni];
       array[mni] = tmp;
@@ -179,7 +188,7 @@ async function bubbleSort() {
     setColor(mni, BARCOLOR)
     setColor(i, "green")
   }
-  isSorting=false;
+  isSorting = false;
 }
 
 function setColor(i: number, c: string) {
