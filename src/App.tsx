@@ -145,6 +145,14 @@ function Visualizer() {
         value: store.getState().swapColor,
         onChange: (v: string) => store.setState({ swapColor: v }),
       },
+      compareColor: {
+        value: store.getState().compareColor,
+        onChange: (v: string) => store.setState({ compareColor: v }),
+      },
+      sortedColor: {
+        value: store.getState().sortedColor,
+        onChange: (v: string) => store.setState({ sortedColor: v }),
+      },
     },
     {
       collapsed: true,
