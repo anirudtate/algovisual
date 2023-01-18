@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Mesh, MeshStandardMaterial } from "three";
+import { Color, Mesh, MeshStandardMaterial } from "three";
 import { create } from "zustand";
 import "./App.css";
 
@@ -30,7 +30,7 @@ interface storeState {
 const store = create<storeState>(() => ({
   array: [],
   arrayCopy: [],
-  delayTime: 1 / 10,
+  delayTime: 1 / 5,
   count: 10,
   isSorting: false,
   bars: createRef<Array<Mesh | null>>() as React.MutableRefObject<
@@ -90,7 +90,7 @@ function Visualizer() {
       reset();
     }),
     speed: {
-      value: 10,
+      value: 5,
       min: 1,
       max: 100,
       step: 1,
@@ -104,6 +104,7 @@ function Visualizer() {
         "bubble sort": bubbleSort,
         "insertion sort": insertionSort,
         "merge sort": mergeSort,
+        "quick sort": quickSort,
       },
       onChange: (v: () => Promise<void>) => {
         algorithm = v;
@@ -159,9 +160,10 @@ function Visualizer() {
     }
   );
   useEffect(() => {
-    const array = randArray(count);
-    store.setState({ array: [...array] });
-    store.setState({ arrayCopy: [...array] });
+    store.setState({ array: [...randArray(count)] });
+    store.setState((state) => {
+      return { arrayCopy: [...state.array] };
+    });
     store.setState({ bars: barsRef });
     reset();
   }, [count, regenerate]);
@@ -202,17 +204,17 @@ async function selectionSort() {
   for (let i = 0; i < n - 1; i++) {
     if (dz()) return;
     let mn = n,
-      mni = -1;
+      mni = i;
     for (let j = i; j < n; j++) {
       if (dz()) return;
+      await compare(mni, j);
       if (array[j] < mn) {
         mn = array[j];
         mni = j;
       }
-      await compare(i, j);
     }
     if (mni != i) {
-      swap(i, mni, array);
+      await swap(i, mni, array);
     }
   }
   await setAllGreen();
@@ -246,7 +248,7 @@ async function bubbleSort() {
       if (dz()) return;
       await compare(j, j + 1);
       if (array[j] > array[j + 1]) {
-        swap(j, j + 1, array);
+        await swap(j, j + 1, array);
       }
     }
   }
@@ -266,7 +268,7 @@ async function insertionSort() {
       if (dz()) return;
       await compare(j, j + 1);
       if (array[j + 1] < array[j]) {
-        swap(j + 1, j, array);
+        await swap(j + 1, j, array);
       }
     }
   }
@@ -275,46 +277,119 @@ async function insertionSort() {
   store.setState({ array: [...array] });
 }
 
-async function merge(left: number[], right: number[]) {
-  let result: number[] = [];
-  let leftIndex = 0;
-  let rightIndex = 0;
-
-  while (leftIndex < left.length && rightIndex < right.length) {
-    if (left[leftIndex] < right[rightIndex]) {
-      result.push(left[leftIndex]);
-      leftIndex++;
+async function merge(array: number[], l: number, m: number, r: number) {
+  let nl = m - l + 1,
+    nr = r - m;
+  let larr = [],
+    rarr = [];
+  for (let i = 0; i < nl; i++) larr[i] = array[l + i];
+  for (let i = 0; i < nr; i++) rarr[i] = array[m + 1 + i];
+  let i = 0,
+    j = 0,
+    k = l;
+  // merge tmp arrays to real array
+  while (i < nl && j < nr) {
+    await compare(l + i, m + 1 + j);
+    if (dz()) return;
+    if (larr[i] <= rarr[j]) {
+      array[k] = larr[i];
+      await swapSet(k, array);
+      if (dz()) return;
+      i++;
     } else {
-      result.push(right[rightIndex]);
-      rightIndex++;
+      array[k] = rarr[j];
+      await swapSet(k, array);
+      if (dz()) return;
+      j++;
     }
+    k++;
   }
-  return result.concat(left.slice(leftIndex)).concat(right.slice(rightIndex));
+  // extra elements
+  while (i < nl) {
+    array[k] = larr[i];
+    await swapSet(k, array);
+    if (dz()) return;
+    i++;
+    k++;
+  }
+  while (j < nr) {
+    array[k] = rarr[j];
+    await swapSet(k, array);
+    if (dz()) return;
+    j++;
+    k++;
+  }
 }
 
-async function realMergeSort(arr: number[]): Promise<number[]> {
-  if (arr.length === 1) {
-    return arr;
+async function realMergeSort(array: number[], l: number, r: number) {
+  if (l < r) {
+    let m = Math.floor((l + r) / 2);
+    if (dz()) return;
+    await realMergeSort(array, l, m);
+    if (dz()) return;
+    await realMergeSort(array, m + 1, r);
+    if (dz()) return;
+    await merge(array, l, m, r);
+    if (dz()) return;
   }
-  const middle = Math.floor(arr.length / 2);
-  const left = arr.slice(0, middle);
-  const right = arr.slice(middle);
-
-  console.log("Splitting:", arr);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  return merge(await realMergeSort(left), await realMergeSort(right));
 }
 
 async function mergeSort() {
   store.setState({ isSorting: true });
   await setAllBase();
+  if (dz()) return;
   let array = [...store.getState().array];
-  dbg(array);
-  array = await realMergeSort(array);
-  setRefThroughArray(array);
-  dbg(array);
+  await realMergeSort(array, 0, array.length - 1);
+  if (dz()) return;
   await setAllGreen();
+  if (dz()) return;
+  store.setState({ isSorting: false });
+  store.setState({ array: [...array] });
+}
+
+let pi = 0;
+async function partition(array: number[], l: number, r: number) {
+  if (dz()) return;
+  let pivot = array[r];
+  let mxi = l - 1;
+  for (let i = l; i < r; i++) {
+    if (dz()) return;
+    await compare(i, r);
+    if (array[i] <= pivot) {
+      mxi++;
+      if (mxi != i && array[mxi] != array[i]) {
+        await swap(mxi, i, array);
+      }
+      if (dz()) return;
+    }
+  }
+  await swap(mxi + 1, r, array);
+  if (dz()) return;
+  pi = mxi + 1;
+}
+
+async function realQuickSort(array: number[], l: number, r: number) {
+  if (l < r) {
+    if (dz()) return;
+    await partition(array, l, r);
+    if (dz()) return;
+    await realQuickSort(array, l, pi - 1);
+    if (dz()) return;
+    await realQuickSort(array, pi + 1, r);
+    if (dz()) return;
+  }
+}
+
+async function quickSort() {
+  store.setState({ isSorting: true });
+  await setAllBase();
+  if (dz()) return;
+  let array = [...store.getState().array];
+  if (dz()) return;
+  await realQuickSort(array, 0, array.length - 1);
+  if (dz()) return;
+  await setAllGreen();
+  if (dz()) return;
   store.setState({ isSorting: false });
   store.setState({ array: [...array] });
 }
@@ -325,13 +400,19 @@ function setColor(i: number, c: string) {
   ).color.set(c);
 }
 
+async function swapSet(i: number, array: number[]) {
+  setColor(i, store.getState().swapColor);
+  setHeight(i, array[i]);
+  if (await dd()) return;
+  setColor(i, store.getState().barColor);
+}
+
 async function swap(i: number, j: number, array: number[]) {
   let tmp = array[i];
   array[i] = array[j];
   array[j] = tmp;
   setColor(i, store.getState().swapColor);
   setColor(j, store.getState().swapColor);
-  if (await dd()) return;
   setHeight(i, array[i]);
   setHeight(j, array[j]);
   if (await dd()) return;
@@ -342,7 +423,6 @@ async function swap(i: number, j: number, array: number[]) {
 async function compare(i: number, j: number) {
   setColor(i, store.getState().compareColor);
   setColor(j, store.getState().compareColor);
-  if (await dd()) return;
   if (await dd()) return;
   setColor(i, store.getState().barColor);
   setColor(j, store.getState().barColor);
@@ -364,6 +444,9 @@ const dd = async () => {
     reset();
     return true;
   }
+  // while (store.getState().pause) {
+  //   await delay(0.5);
+  // }
   await delay(store.getState().delayTime);
   return false;
 };
