@@ -1,8 +1,8 @@
-import { OrbitControls } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
+import { OrbitControls, useHelper } from "@react-three/drei";
+import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { Canvas, useThree } from "@react-three/fiber";
 import gsap from "gsap";
-import { button, Leva, useControls } from "leva";
-import { Perf } from "r3f-perf";
+import { button, Leva, LevaPanel, useControls } from "leva";
 import {
   createRef,
   MutableRefObject,
@@ -10,9 +10,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { Color, Mesh, MeshStandardMaterial } from "three";
+import { DirectionalLight, DirectionalLightHelper, Mesh, MeshStandardMaterial, Vector3 } from "three";
 import { create } from "zustand";
 import "./App.css";
+import useWindowDimensions from "./useWindowDimensions";
 
 interface storeState {
   isSorting: boolean;
@@ -36,7 +37,7 @@ const store = create<storeState>(() => ({
   bars: createRef<Array<Mesh | null>>() as React.MutableRefObject<
     Array<Mesh | null>
   >,
-  baseColor: "black",
+  baseColor: "#111111",
   barColor: "slategray",
   swapColor: "blue",
   compareColor: "red",
@@ -58,20 +59,18 @@ const setRefThroughArray = (array: number[]) => {
 export default function App() {
   return (
     <div className="canvas">
-      <Leva hideCopyButton={true} />
+      <Leva />
       <Canvas>
-        <Perf position="top-left" />
         <Visualizer />
-        <OrbitControls />
-        <directionalLight position={[1, 2, 3]} intensity={1.5} />
-        <directionalLight position={[-1, -2, -3]} intensity={1.5} />
+        <directionalLight position={[-0.5, 3, 5]} intensity={1.5} />
         <ambientLight intensity={0.5} />
       </Canvas>
     </div>
-  );
+  )
 }
 
 function Visualizer() {
+  const orbitControls = useRef<OrbitControlsImpl>(null!);
   const sorting = store((state) => state.isSorting);
   const barColor = store((state) => state.barColor);
   const baseColor = store((state) => state.baseColor);
@@ -79,6 +78,14 @@ function Visualizer() {
   const [regenerate, setRegenerate] = useState(false);
   let algorithm = selectionSort;
   const barsRef = useRef<Array<Mesh | null>>([]);
+  const { camera } = useThree();
+  const { height, width } = useWindowDimensions();
+  useEffect(() => {
+    camera.position.y =  count;
+    camera.position.z = (1 / Math.min(width, height)) * 1000 * count;
+    orbitControls.current.target.set(0,count/3,0);
+  }, [width,count]);
+
   useControls("Controls", {
     "sort!": button(() => {
       !sorting ? algorithm() : null;
@@ -169,8 +176,8 @@ function Visualizer() {
   }, [count, regenerate]);
   return (
     <>
-      {/* BARS */}
-      {[...Array(count)].map((_, i) => (
+      <OrbitControls ref={orbitControls} />
+      {/* BARS */} {[...Array(count)].map((_, i) => (
         <mesh key={i} ref={(e) => (barsRef.current[i] = e)}>
           <boxBufferGeometry />
           <meshStandardMaterial color={barColor} />
@@ -470,7 +477,7 @@ function rand(min: number, max: number) {
 
 function randArray(length: number) {
   const array = new Array<number>();
-  for (let i = 0; i < length; i++) array.push(rand(1, length - 2));
+  for (let i = 0; i < length; i++) array.push(rand(1, length));
   return array;
 }
 
