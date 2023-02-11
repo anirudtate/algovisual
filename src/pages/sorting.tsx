@@ -2,7 +2,7 @@ import { OrbitControls } from "@react-three/drei";
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { Canvas, useThree } from "@react-three/fiber";
 import gsap from "gsap";
-import { button, Leva, useControls } from "leva";
+import { button, Leva, LevaPanel, useControls, useCreateStore } from "leva";
 import {
   createRef,
   MutableRefObject,
@@ -12,15 +12,16 @@ import {
 } from "react";
 import { Mesh, MeshStandardMaterial } from "three";
 import { create } from "zustand";
-import "./Sort.css";
-import useWindowDimensions from "./useWindowDimensions";
+import useWindowDimensions from "./../utils/useWindowDimensions";
+import Drawer from "../utils/Drawer";
+import { StoreType } from "leva/dist/declarations/src/types";
 
 interface storeState {
   isSorting: boolean;
   bars: MutableRefObject<Array<Mesh | null>>;
   baseColor: string;
   barColor: string;
-  count: number;
+  barsCount: number;
   delayTime: number;
   pause: boolean;
   swapColor: string;
@@ -29,27 +30,34 @@ interface storeState {
   array: number[];
   arrayCopy: number[];
 }
-const store = create<storeState>(() => ({
+
+const initialState = {
   pause: false,
   array: [],
   arrayCopy: [],
   delayTime: 1 / 5,
-  count: 10,
+  barsCount: 10,
   isSorting: false,
   bars: createRef<Array<Mesh | null>>() as React.MutableRefObject<
     Array<Mesh | null>
   >,
   baseColor: "#111111",
-  barColor: "slategray",
+  barColor: "#887777",
   swapColor: "blue",
   compareColor: "red",
   sortedColor: "green",
+}
+
+const store = create<storeState>(() => ({
+  ...initialState,
 }));
 
+let levaSortStore: StoreType;
+
 const setRefThroughArray = (array: number[]) => {
-  const count = store.getState().count;
-  const offset = ((count - 1) * 1.5) / 2;
-  for (let i = 0; i < count; i++) {
+  const barsCount = store.getState().barsCount;
+  const offset = ((barsCount - 1) * 1.5) / 2;
+  for (let i = 0; i < barsCount; i++) {
     store
       .getState()
       .bars.current[i]?.position.set(i * 1.5 - offset, array[i] / 2, 0);
@@ -59,15 +67,18 @@ const setRefThroughArray = (array: number[]) => {
 };
 
 export default function Sort() {
+  levaSortStore = useCreateStore();
   return (
-    <div className="canvas">
-      <Leva />
-      <Canvas>
-        <Visualizer />
-        <directionalLight position={[-0.5, 3, 5]} intensity={1.5} />
-        <ambientLight intensity={0.5} />
-      </Canvas>
-    </div>
+    <Drawer>
+      <div className="h-screen w-screen">
+        <LevaPanel hideCopyButton titleBar={{ filter: false }} store={levaSortStore} />
+        <Canvas>
+          <Visualizer />
+          <directionalLight position={[-0.5, 3, 5]} intensity={1.5} />
+          <ambientLight intensity={0.5} />
+        </Canvas>
+      </div>
+    </Drawer>
   )
 }
 
@@ -76,7 +87,7 @@ function Visualizer() {
   const sorting = store((state) => state.isSorting);
   const barColor = store((state) => state.barColor);
   const baseColor = store((state) => state.baseColor);
-  const count = store((state) => state.count);
+  const barsCount = store((state) => state.barsCount);
   const [regenerate, setRegenerate] = useState(false);
   let algorithm = selectionSort;
   const barsRef = useRef<Array<Mesh | null>>([]);
@@ -84,10 +95,10 @@ function Visualizer() {
   const { height, width } = useWindowDimensions();
   useEffect(() => {
     camera.position.x = 0;
-    camera.position.y = count / 2;
-    camera.position.z = (1 / Math.min(width, height)) * 1000 * count;
-    orbitControls.current.target.set(0, count / 3, 0);
-  }, [width, height, count]);
+    camera.position.y = barsCount / 2;
+    camera.position.z = (1 / Math.min(width, height)) * 1000 * barsCount;
+    orbitControls.current.target.set(0, barsCount / 3, 0);
+  }, [width, height, barsCount]);
 
   useControls("Controls", {
     "Play/Pause": button(() => {
@@ -103,13 +114,13 @@ function Visualizer() {
     Regenerate: button(() => {
       setRegenerate((v) => !v);
     }),
-    Count: {
+    barsCount: {
       value: 10,
       min: 1,
       max: 100,
       step: 1,
       disabled: sorting,
-      onChange: (v: number) => store.setState({ count: v }),
+      onChange: (v: number) => store.setState({ barsCount: v }),
     },
     Speed: {
       value: 5,
@@ -133,41 +144,10 @@ function Visualizer() {
         algorithm = v;
       },
     },
-  }, [sorting]
-  );
-  const { background } = useControls(
-    "Advanced",
-    {
-      background: {
-        value: "#242424",
-      },
-      barColor: {
-        value: barColor,
-        onChange: (v: string) => store.setState({ barColor: v }),
-      },
-      baseColor: {
-        value: baseColor,
-        onChange: (v: string) => store.setState({ baseColor: v }),
-      },
-      swapColor: {
-        value: store.getState().swapColor,
-        onChange: (v: string) => store.setState({ swapColor: v }),
-      },
-      compareColor: {
-        value: store.getState().compareColor,
-        onChange: (v: string) => store.setState({ compareColor: v }),
-      },
-      sortedColor: {
-        value: store.getState().sortedColor,
-        onChange: (v: string) => store.setState({ sortedColor: v }),
-      },
-    },
-    {
-      collapsed: true,
-    }
+  }, { store: levaSortStore }, [sorting]
   );
   useEffect(() => {
-    store.setState({ array: [...randArray(count)] });
+    store.setState({ array: [...randArray(barsCount)] });
     store.setState((state) => {
       return { arrayCopy: [...state.array] };
     });
@@ -176,23 +156,23 @@ function Visualizer() {
     return () => {
       reset();
     }
-  }, [count, regenerate]);
+  }, [barsCount, regenerate]);
   return (
     <>
       <OrbitControls ref={orbitControls} />
       {/* BARS */}
-      {[...Array(count)].map((_, i) => (
+      {[...Array(barsCount)].map((_, i) => (
         <mesh key={i} ref={(e) => (barsRef.current[i] = e)}>
           <boxBufferGeometry />
           <meshStandardMaterial color={barColor} />
         </mesh>
       ))}
       {/* BASE */}
-      <mesh position={[0, -0.5 / 2, 0]} scale={[count * 1.5, 0.5, 1.5]}>
+      <mesh position={[0, -0.5 / 2, 0]} scale={[barsCount * 1.5, 0.5, 1.5]}>
         <boxBufferGeometry />
-        <meshStandardMaterial color={baseColor} />
+        <meshStandardMaterial color={baseColor} metalness={0} roughness={0} />
       </mesh>
-      <color args={[background]} attach="background" />
+      <color args={["#222222"]} attach="background" />
     </>
   );
 }
@@ -234,7 +214,7 @@ async function selectionSort() {
 }
 
 async function setAllGreen() {
-  const n = store.getState().count;
+  const n = store.getState().barsCount;
   for (let i = 0; i < n; i++) {
     setColor(i, store.getState().sortedColor);
     if (await dd()) return;
@@ -242,7 +222,7 @@ async function setAllGreen() {
 }
 
 async function setAllBase() {
-  const n = store.getState().count;
+  const n = store.getState().barsCount;
   for (let i = 0; i < n; i++) {
     setColor(i, store.getState().barColor);
   }
@@ -408,7 +388,7 @@ async function quickSort() {
 function setColor(i: number, c: string) {
   (
     store.getState().bars.current[i]?.material as MeshStandardMaterial
-  ).color.set(c);
+  )?.color.set(c);
 }
 
 async function swapSet(i: number, array: number[]) {
@@ -483,8 +463,4 @@ function randArray(length: number) {
   const array = new Array<number>();
   for (let i = 0; i < length; i++) array.push(rand(1, length));
   return array;
-}
-
-function dbg(x: any) {
-  console.log(x);
 }

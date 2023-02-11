@@ -2,7 +2,7 @@ import { OrbitControls } from "@react-three/drei";
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { Canvas, useThree } from "@react-three/fiber";
 import gsap from "gsap";
-import { button, Leva, useControls } from "leva";
+import { button, LevaPanel, useControls, useCreateStore } from "leva";
 import {
   createRef,
   Fragment,
@@ -13,8 +13,9 @@ import {
 } from "react";
 import { Mesh, MeshStandardMaterial, Object3D } from "three";
 import { create } from "zustand";
-import "./Path.css";
-import useWindowDimensions from "./useWindowDimensions";
+import useWindowDimensions from "./../utils/useWindowDimensions";
+import Drawer from "../utils/Drawer";
+import { StoreType } from "leva/dist/declarations/src/types";
 
 const wall = 1;
 const start = 2;
@@ -28,7 +29,7 @@ interface storeState {
   boxs: MutableRefObject<Array<Array<Mesh | null>>>;
   baseColor: string;
   normColor: string;
-  count: number;
+  boxCount: number;
   delayTime: number;
   pause: boolean;
   wallColor: string;
@@ -38,14 +39,15 @@ interface storeState {
   pathColor: string;
   array: Array<Array<number>>;
 }
-const store = create<storeState>(() => ({
+
+const initialState = {
   maze: noWallsMaze,
   startColor: "red",
   endColor: "green",
   pause: false,
   array: [[]],
   delayTime: 1 / 5,
-  count: 10,
+  boxCount: 10,
   isFinding: false,
   boxs: createRef<Array<Array<Mesh | null>>>() as React.MutableRefObject<
     Array<Array<Mesh | null>>
@@ -55,14 +57,18 @@ const store = create<storeState>(() => ({
   wallColor: "#000852",
   visitColor: "cyan",
   pathColor: "yellow",
+}
+
+const store = create<storeState>(() => ({
+  ...initialState,
 }));
 
 const setRefThroughArray = () => {
   const array = store.getState().array;
-  const count = store.getState().count;
-  const offset = ((count - 1) * gap) / 2;
-  for (let i = 0; i < count; i++) {
-    for (let j = 0; j < count; j++) {
+  const boxCount = store.getState().boxCount;
+  const offset = ((boxCount - 1) * gap) / 2;
+  for (let i = 0; i < boxCount; i++) {
+    for (let j = 0; j < boxCount; j++) {
       store
         .getState()
         .boxs.current[i][j]?.position.set(i * gap - offset, 0, j * gap - offset);
@@ -85,59 +91,62 @@ const setRefThroughArray = () => {
   }
 };
 
+let levaPathStore: StoreType;
+
 export default function Path() {
+  levaPathStore = useCreateStore();
   return (
-    <div className="canvas">
-      <Leva />
-      <Canvas>
-        <Visualizer />
-        <directionalLight position={[-0.5, 3, 5]} intensity={1.5} />
-        <ambientLight intensity={0.5} />
-      </Canvas>
-    </div>
+    <Drawer>
+      <div className="h-screen w-screen">
+        <LevaPanel hideCopyButton titleBar={{ filter: false }} store={levaPathStore} />
+        <Canvas>
+          <Visualizer />
+          <directionalLight position={[-0.5, 3, 5]} intensity={1.5} />
+          <ambientLight intensity={0.5} />
+        </Canvas>
+      </div>
+    </Drawer>
   )
 }
 
 function Visualizer() {
-  dbg("render");
   const orbitControls = useRef<OrbitControlsImpl>(null!);
   const maze = store((state) => state.maze);
-  const sorting = store((state) => state.isFinding);
-  const barColor = store((state) => state.normColor);
+  const finding = store((state) => state.isFinding);
+  const boxColor = store((state) => state.normColor);
   const baseColor = store((state) => state.baseColor);
-  const count = store((state) => state.count);
+  const boxCount = store((state) => state.boxCount);
   const [regenerate, setRegenerate] = useState(false);
   const boxsRef = useRef<Array<Array<Mesh | null>>>([]);
-  let algorithm = bfs;
+  let findingAlgorithm = bfs;
   const { camera } = useThree();
   const { height, width } = useWindowDimensions();
   useEffect(() => {
     camera.position.x = 0;
-    camera.position.y = count / 2;
-    camera.position.z = (1 / Math.min(width, height)) * 1000 * count;
-    orbitControls.current.target.set(0, count / 3, 0);
-  }, [width, height, count]);
+    camera.position.y = boxCount / 2;
+    camera.position.z = (1 / Math.min(width, height)) * 1000 * boxCount;
+    orbitControls.current.target.set(0, boxCount / 3, 0);
+  }, [width, height, boxCount]);
 
   useControls("Controls", {
     "Play/Pause": button(() => {
       if (store.getState().isFinding) {
         store.setState({ pause: !store.getState().pause });
       } else {
-        const result = algorithm(store.getState().array, [0, 0], [store.getState().count-1, store.getState().count-1]);
+        const result = findingAlgorithm(store.getState().array, [0, 0], [store.getState().boxCount - 1, store.getState().boxCount - 1]);
         animate(result.visitingOrder, result.path);
       }
     }),
     Reset: button(() => {
       reset();
-      // setRegenerate((v) => !v);
     }),
     Count: {
       value: 10,
       min: 1,
       max: 100,
       step: 1,
-      disabled: sorting,
-      onChange: (v: number) => store.setState({ count: v }),
+      disabled: finding,
+      onChange: (v: number) => store.setState({ boxCount: v }),
     },
     Speed: {
       value: 20,
@@ -153,12 +162,12 @@ function Visualizer() {
         "bfs": bfs,
         "Dfs": dfs,
       },
-      disabled: sorting,
+      disabled: finding,
       onChange: (v: (grid: number[][], start: number[], end: number[]) => {
         visitingOrder: number[][];
         path: number[][];
       }) => {
-        algorithm = v;
+        findingAlgorithm = v;
       },
     },
     "Maze Generator": {
@@ -166,81 +175,48 @@ function Visualizer() {
         "None": noWallsMaze,
         "Recursive Division": recursiveDivisionGrid,
       },
-      disabled: sorting,
+      disabled: finding,
       onChange: (v: (h: number) => number[][]) => {
-        if(store.getState().isFinding) return;
+        if (store.getState().isFinding) return;
         store.setState({ maze: v });
       },
     },
     "Regenerate": button(() => {
       setRegenerate((v) => !v);
     }),
-  }, [sorting]
-  );
-  useControls("Controls", {
-  })
-  const { background } = useControls(
-    "Advanced",
-    {
-      background: {
-        value: "#242424",
-      },
-      barColor: {
-        value: barColor,
-        onChange: (v: string) => store.setState({ normColor: v }),
-      },
-      baseColor: {
-        value: baseColor,
-        onChange: (v: string) => store.setState({ baseColor: v }),
-      },
-      swapColor: {
-        value: store.getState().wallColor,
-        onChange: (v: string) => store.setState({ wallColor: v }),
-      },
-      compareColor: {
-        value: store.getState().visitColor,
-        onChange: (v: string) => store.setState({ visitColor: v }),
-      },
-      sortedColor: {
-        value: store.getState().pathColor,
-        onChange: (v: string) => store.setState({ pathColor: v }),
-      },
-    },
-    {
-      collapsed: true,
-    }
+  }, { store: levaPathStore }, [finding]
   );
   useEffect(() => {
-    store.setState({ array: [...maze(store.getState().count)] });
+    store.setState({ array: [...maze(store.getState().boxCount)] });
     store.setState({ boxs: boxsRef });
     reset();
     return () => {
-      if(store.getState().isFinding){
-        store.setState({isFinding: false});
+      if (store.getState().isFinding) {
+        store.setState({ isFinding: false });
       }
     }
-  }, [count, regenerate, maze]);
+  }, [boxCount, regenerate, maze]);
   return (
     <>
       <OrbitControls ref={orbitControls} />
       {/* BARS */}
-      {[...Array(count)].map((_, i: number) => {
+      {[...Array(boxCount)].map((_, i: number) => {
         boxsRef.current[i] = [];
         return (
           <Fragment key={i}>
-            {[...Array(count)].map((_, j) => {
+            {[...Array(boxCount)].map((_, j) => {
               return (
-                <mesh key={`${i}${j}`} ref={(e) => (boxsRef.current[i][j] = e)} onClick={(e)=>{
+                <mesh key={`${i}${j}`} ref={(e) => (boxsRef.current[i][j] = e)} onClick={(e) => {
                   e.stopPropagation();
                   const cords = getCords(e.object);
-                  if(store.getState().array[i][j]!==wall){
-                    makeWall(cords[0],cords[1]);
+                  if (store.getState().array[i][j] !== wall) {
+                    makeWall(cords[0], cords[1]);
                   } else {
-                    makeNorm(cords[0],cords[1]);
+                    makeNorm(cords[0], cords[1]);
                   }
                 }}>
                   <boxBufferGeometry />
-                  <meshStandardMaterial color={barColor} />
+                  <meshStandardMaterial color={boxColor} />
                 </mesh>
               );
             })}
@@ -248,11 +224,11 @@ function Visualizer() {
         );
       })}
       {/* BASE */}
-      <mesh position={[0, -0.1, 0]} scale={[count * (gap + 0.1), 1, count * 1.15]}>
+      <mesh position={[0, -0.1, 0]} scale={[boxCount * (gap + 0.1), 1, boxCount * 1.15]}>
         <boxBufferGeometry />
         <meshStandardMaterial color={baseColor} />
       </mesh>
-      <color args={[background]} attach="background" />
+      <color args={["#222222"]} attach="background" />
     </>
   );
 }
@@ -266,34 +242,34 @@ async function reset() {
   setRefThroughArray();
 }
 
-function getCords(object: Object3D){
-  let n = store.getState().count;
-  for(let i=0;i<n;i++){
-    for(let j=0;j<n;j++){
-      if(store.getState().boxs.current[i][j]===object){
-        return [i,j];
+function getCords(object: Object3D) {
+  let n = store.getState().boxCount;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (store.getState().boxs.current[i][j] === object) {
+        return [i, j];
       }
     }
   }
-  return [-1,-1];
+  return [-1, -1];
 }
 
-function makeWall(i:number, j:number){
-  store.getState().array[i][j]=wall;
-  setColor(i,j,store.getState().wallColor);
-  setHeight(i,j,1.9);
+function makeWall(i: number, j: number) {
+  store.getState().array[i][j] = wall;
+  setColor(i, j, store.getState().wallColor);
+  setHeight(i, j, 1.9);
 }
 
-function makeNorm(i:number, j:number){
-  store.getState().array[i][j]=norm;
-  setColor(i,j,store.getState().normColor);
-  setHeight(i,j,1);
+function makeNorm(i: number, j: number) {
+  store.getState().array[i][j] = norm;
+  setColor(i, j, store.getState().normColor);
+  setHeight(i, j, 1);
 }
 
 function setColor(i: number, j: number, c: string) {
   (
     store.getState().boxs.current[i][j]?.material as MeshStandardMaterial
-  ).color.set(c);
+  )?.color.set(c);
 }
 
 function setHeight(i: number, j: number, h: number) {
@@ -348,29 +324,9 @@ function rand(min: number, max: number) {
 
 function noWallsMaze(c: number) {
   const array = create2DArray(c);
-  array[0][0]=start;
-  array[c-1][c-1]=end;
+  array[0][0] = start;
+  array[c - 1][c - 1] = end;
   return array;
-}
-
-function maze1() {
-  const array = [
-    [2, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 1, 0, 1, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 1, 0, 1, 1, 1, 0],
-    [0, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 1, 0, 0, 0, 0, 3],
-  ]
-  return array;
-}
-
-function dbg(x: any) {
-  console.log(x);
 }
 
 async function animate(visitingOrder: number[][], path: number[][]) {
@@ -390,7 +346,7 @@ async function animate(visitingOrder: number[][], path: number[][]) {
 }
 
 function bfs(grid: number[][], start: number[], end: number[]): { visitingOrder: number[][], path: number[][] } {
-  const rows = store.getState().count;
+  const rows = store.getState().boxCount;
   const cols = rows;
   const queue: number[][] = [];
   const distances: number[][] = [];
@@ -449,7 +405,7 @@ function dfs(grid: number[][], start: number[], end: number[]): { visitingOrder:
   const parents: number[][][] = [];
   const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
   const path: number[][] = [];
-  const vis = create2DArray(store.getState().count);
+  const vis = create2DArray(store.getState().boxCount);
   const visitingOrder: number[][] = [];
 
   for (let i = 0; i < rows; i++) {
@@ -483,7 +439,7 @@ function dfs(grid: number[][], start: number[], end: number[]): { visitingOrder:
     for (const dir of dirs) {
       const newRow = row + dir[0];
       const newCol = col + dir[1];
-      if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols && grid[newRow][newCol] !== 1 && vis[newRow][newCol]===0) {
+      if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols && grid[newRow][newCol] !== 1 && vis[newRow][newCol] === 0) {
         parents[newRow][newCol] = [row, col];
         stack.push([newRow, newCol]);
       }
@@ -493,7 +449,7 @@ function dfs(grid: number[][], start: number[], end: number[]): { visitingOrder:
   return { visitingOrder, path: [] };
 }
 
-function create2DArray(c:number) {
+function create2DArray(c: number) {
   const array = new Array(c);
   for (let i = 0; i < c; i++) array[i] = new Array(c);
   for (let i = 0; i < c; i++) {
@@ -505,7 +461,7 @@ function create2DArray(c:number) {
 }
 
 function recursiveDivisionGrid(width: number): number[][] {
-  const height=width;
+  const height = width;
   let grid = Array(height)
     .fill(null)
     .map(() => Array(width).fill(0));
@@ -516,14 +472,14 @@ function recursiveDivisionGrid(width: number): number[][] {
   grid[startNode[0]][startNode[1]] = 2;
   grid[endNode[0]][endNode[1]] = 3;
   const walls = recursiveDivisionMaze(grid, startNode, endNode);
-  for(let i=0;i<walls.length;i++){
+  for (let i = 0; i < walls.length; i++) {
     grid[walls[i][0]][walls[i][1]] = 1;
   }
   return grid;
 }
 
 let walls: number[][];
-export function recursiveDivisionMaze(grid: number[][], startNode:number[], finishNode:number[]) {
+export function recursiveDivisionMaze(grid: number[][], startNode: number[], finishNode: number[]) {
   if (!startNode || !finishNode || startNode === finishNode) {
     return [];
   }
@@ -545,12 +501,12 @@ function range(len: number) {
 //dir === 0 => Horizontal
 //dir === 1 => Vertical
 
-function getRecursiveWalls(vertical: number[], horizontal:number[], grid:number[][], startNode:number[], finishNode:number[]) {
+function getRecursiveWalls(vertical: number[], horizontal: number[], grid: number[][], startNode: number[], finishNode: number[]) {
   if (vertical.length < 2 || horizontal.length < 2) {
     return;
   }
-  let dir: number= 0;
-  let num: number= 0;
+  let dir: number = 0;
+  let num: number = 0;
   if (vertical.length > horizontal.length) {
     dir = 0;
     num = generateOddRandomNumber(vertical);
@@ -613,7 +569,7 @@ function generateOddRandomNumber(array: number[]) {
 //dir === 0 => Horizontal
 //dir === 1 => Vertical
 
-function addWall(dir: number, num: number, vertical:number[], horizontal:number[], startNode:number[], finishNode:number[]) {
+function addWall(dir: number, num: number, vertical: number[], horizontal: number[], startNode: number[], finishNode: number[]) {
   let isStartFinish = false;
   let tempWalls = [];
   if (dir === 0) {
