@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Mesh, MeshStandardMaterial, Object3D } from "three";
+import { Mesh, MeshStandardMaterial } from "three";
 import { create } from "zustand";
 import useWindowDimensions from "./../utils/useWindowDimensions";
 import Drawer from "../utils/Drawer";
@@ -53,9 +53,9 @@ const initialState = {
     Array<Array<Mesh | null>>
   >,
   baseColor: "#111111",
-  normColor: "slategray",
+  normColor: "#887777",
   wallColor: "#000852",
-  visitColor: "cyan",
+  visitColor: "turquoise",
   pathColor: "yellow",
 }
 
@@ -208,11 +208,12 @@ function Visualizer() {
               return (
                 <mesh key={`${i}${j}`} ref={(e) => (boxsRef.current[i][j] = e)} onClick={(e) => {
                   e.stopPropagation();
-                  const cords = getCords(e.object);
+                  if( i==0 && j==0) return;
+                  if(i==boxCount-1 && j==boxCount-1) return;
                   if (store.getState().array[i][j] !== wall) {
-                    makeWall(cords[0], cords[1]);
+                    makeWall(i, j);
                   } else {
-                    makeNorm(cords[0], cords[1]);
+                    makeNorm(i, j);
                   }
                 }}>
                   <boxBufferGeometry />
@@ -240,18 +241,6 @@ async function reset() {
   }
   await delay(0.1);
   setRefThroughArray();
-}
-
-function getCords(object: Object3D) {
-  let n = store.getState().boxCount;
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      if (store.getState().boxs.current[i][j] === object) {
-        return [i, j];
-      }
-    }
-  }
-  return [-1, -1];
 }
 
 function makeWall(i: number, j: number) {
@@ -332,12 +321,16 @@ function noWallsMaze(c: number) {
 async function animate(visitingOrder: number[][], path: number[][]) {
   store.setState({ isFinding: true })
   setRefThroughArray();
-  for (let i = 1; i < visitingOrder.length - 1; i++) {
+  for (let i = 0; i < visitingOrder.length; i++) {
+    if(visitingOrder[i][0]==0 && visitingOrder[i][1]==0) continue;
+    if(visitingOrder[i][0]==store.getState().boxCount-1 && visitingOrder[i][1]==store.getState().boxCount-1) continue;
     bounce(visitingOrder[i][0], visitingOrder[i][1]);
     setColor(visitingOrder[i][0], visitingOrder[i][1], store.getState().visitColor);
     await dd();
   }
-  for (let i = 1; i < path.length - 1; i++) {
+  for (let i = 0; i < path.length; i++) {
+    if(path[i][0]==0 && path[i][1]==0) continue;
+    if(path[i][0]==store.getState().boxCount-1 && path[i][1]==store.getState().boxCount-1) continue;
     bounce(path[i][0], path[i][1]);
     setColor(path[i][0], path[i][1], store.getState().pathColor);
     await dd();
