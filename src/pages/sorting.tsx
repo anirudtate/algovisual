@@ -93,6 +93,7 @@ function Visualizer() {
   const barsRef = useRef<Array<Mesh | null>>([]);
   const { camera } = useThree();
   const { height, width } = useWindowDimensions();
+  const [interacted, setInteracted] = useState(false);
   useEffect(() => {
     camera.position.x = 0;
     camera.position.y = barsCount / 2;
@@ -157,6 +158,20 @@ function Visualizer() {
       reset();
     }
   }, [barsCount, regenerate]);
+    useEffect(() => {
+    const lister = () => {
+      if (interacted == false) setInteracted(true);
+      window.removeEventListener("mousedown", lister);
+    }
+    window.addEventListener("mousedown", lister)
+    return () => {
+      window.removeEventListener("mousedown", lister);
+    }
+  },[])
+  useEffect(()=>{
+    orbitControls.current.autoRotate = !interacted;
+  },[interacted])
+
   return (
     <>
       <OrbitControls ref={orbitControls} />

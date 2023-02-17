@@ -121,12 +121,26 @@ function Visualizer() {
   let findingAlgorithm = bfs;
   const { camera } = useThree();
   const { height, width } = useWindowDimensions();
+  const [interacted, setInteracted] = useState(false);
   useEffect(() => {
     camera.position.x = 0;
-    camera.position.y = boxCount / 2;
+    camera.position.y = boxCount;
     camera.position.z = (1 / Math.min(width, height)) * 1000 * boxCount;
     orbitControls.current.target.set(0, boxCount / 3, 0);
   }, [width, height, boxCount]);
+  useEffect(() => {
+    const lister = () => {
+      if (interacted == false) setInteracted(true);
+      window.removeEventListener("mousedown", lister);
+    }
+    window.addEventListener("mousedown", lister)
+    return () => {
+      window.removeEventListener("mousedown", lister);
+    }
+  },[])
+  useEffect(()=>{
+    orbitControls.current.autoRotate = !interacted;
+  },[interacted])
 
   useControls("Controls", {
     "Play/Pause": button(() => {
@@ -134,6 +148,7 @@ function Visualizer() {
         store.setState({ pause: !store.getState().pause });
       } else {
         const result = findingAlgorithm(store.getState().array, [0, 0], [store.getState().boxCount - 1, store.getState().boxCount - 1]);
+        // console.log(result);
         animate(result.visitingOrder, result.path);
       }
     }),
@@ -143,10 +158,10 @@ function Visualizer() {
     Count: {
       value: 10,
       min: 1,
-      max: 100,
+      max: 50,
       step: 1,
       disabled: finding,
-      onChange: (v: number) => store.setState({ boxCount: v }),
+      onEditEnd: (v: number) => store.setState({ boxCount: v }),
     },
     Speed: {
       value: 20,
@@ -161,6 +176,7 @@ function Visualizer() {
       options: {
         "bfs": bfs,
         "Dfs": dfs,
+        "Dijkstra": dijkstra,
       },
       disabled: finding,
       onChange: (v: (grid: number[][], start: number[], end: number[]) => {
@@ -174,6 +190,9 @@ function Visualizer() {
       options: {
         "None": noWallsMaze,
         "Recursive Division": recursiveDivisionGrid,
+        "vertical Division": horizontalDivisionGrid,
+        "Horizontal Division": verticalDivisionGrid,
+        "Random Throw": randomDivisionGrid,
       },
       disabled: finding,
       onChange: (v: (h: number) => number[][]) => {
@@ -181,8 +200,11 @@ function Visualizer() {
         store.setState({ maze: v });
       },
     },
-    "Regenerate": button(() => {
+    "Regenerate Walls": button(() => {
       setRegenerate((v) => !v);
+    }),
+    "Reset Walls": button(() => {
+      store.setState({ maze: noWallsMaze });
     }),
   }, { store: levaPathStore }, [finding]
   );
@@ -208,8 +230,8 @@ function Visualizer() {
               return (
                 <mesh key={`${i}${j}`} ref={(e) => (boxsRef.current[i][j] = e)} onClick={(e) => {
                   e.stopPropagation();
-                  if( i==0 && j==0) return;
-                  if(i==boxCount-1 && j==boxCount-1) return;
+                  if (i == 0 && j == 0) return;
+                  if (i == boxCount - 1 && j == boxCount - 1) return;
                   if (store.getState().array[i][j] !== wall) {
                     makeWall(i, j);
                   } else {
@@ -322,15 +344,15 @@ async function animate(visitingOrder: number[][], path: number[][]) {
   store.setState({ isFinding: true })
   setRefThroughArray();
   for (let i = 0; i < visitingOrder.length; i++) {
-    if(visitingOrder[i][0]==0 && visitingOrder[i][1]==0) continue;
-    if(visitingOrder[i][0]==store.getState().boxCount-1 && visitingOrder[i][1]==store.getState().boxCount-1) continue;
+    if (visitingOrder[i][0] == 0 && visitingOrder[i][1] == 0) continue;
+    if (visitingOrder[i][0] == store.getState().boxCount - 1 && visitingOrder[i][1] == store.getState().boxCount - 1) continue;
     bounce(visitingOrder[i][0], visitingOrder[i][1]);
     setColor(visitingOrder[i][0], visitingOrder[i][1], store.getState().visitColor);
     await dd();
   }
   for (let i = 0; i < path.length; i++) {
-    if(path[i][0]==0 && path[i][1]==0) continue;
-    if(path[i][0]==store.getState().boxCount-1 && path[i][1]==store.getState().boxCount-1) continue;
+    if (path[i][0] == 0 && path[i][1] == 0) continue;
+    if (path[i][0] == store.getState().boxCount - 1 && path[i][1] == store.getState().boxCount - 1) continue;
     bounce(path[i][0], path[i][1]);
     setColor(path[i][0], path[i][1], store.getState().pathColor);
     await dd();
@@ -442,6 +464,106 @@ function dfs(grid: number[][], start: number[], end: number[]): { visitingOrder:
   return { visitingOrder, path: [] };
 }
 
+// dijkstra
+function dijkstra(grid: number[][], start: number[], end: number[]) {
+  let n = store.getState().boxCount;
+  const ROW = n;
+  const COL = n;
+  const distances = Array(ROW).fill(null).map(() => Array(COL).fill(Number.MAX_SAFE_INTEGER));
+  const visitOrder: number[][] = [];
+  const visited: boolean[][] = Array(ROW).fill(null).map(() => Array(COL).fill(false));
+  const path = Array(ROW).fill(null).map(() => Array(COL).fill(null));
+  const queue = [];
+
+  // Find start node
+  let startRow = start[0];
+  let startCol = start[1];
+  for (let i = 0; i < ROW; i++) {
+    for (let j = 0; j < COL; j++) {
+      if (grid[i][j] === 2) {
+        startRow = i;
+        startCol = j;
+        break;
+      }
+    }
+    if (startRow !== -1) {
+      break;
+    }
+  }
+
+  // Set distance of start node to 0
+  distances[startRow][startCol] = 0;
+  visited[startRow][startCol] = true;
+  visitOrder.push([startRow, startCol]);
+  queue.push([startRow, startCol]);
+
+  while (queue.length) {
+    const [row, col] = queue.shift();
+    const neighbors = getNeighbors(grid, row, col);
+
+    for (const [r, c] of neighbors) {
+      if (!visited[r][c]) {
+        const distance = distances[row][col] + 1;
+
+        if (distance < distances[r][c]) {
+          distances[r][c] = distance;
+          path[r][c] = [row, col];
+        }
+
+        if (grid[r][c] === 3 || (r == n - 1 && c == n - 1)) {
+          return {
+            visitingOrder: visitOrder,
+            path: constructPath(path, startRow, startCol, r, c),
+          };
+        }
+
+        visited[r][c] = true;
+        visitOrder.push([r, c]);
+        queue.push([r, c]);
+      }
+    }
+  }
+
+  // If end node is not found, return empty path
+  return {
+    visitingOrder: visitOrder,
+    path: [],
+  };
+}
+
+function getNeighbors(grid: number[][], row: number, col: number) {
+  const ROW = grid.length;
+  const COL = grid[0].length;
+  const dirs = [[-1, 0], [0, 1], [1, 0], [0, -1]];
+  const neighbors = [];
+
+  for (const [r, c] of dirs.map(([r, c]) => [r + row, c + col])) {
+    if (r >= 0 && r < ROW && c >= 0 && c < COL && grid[r][c] !== 1) {
+      neighbors.push([r, c]);
+    }
+  }
+
+  return neighbors;
+}
+
+function constructPath(path: number[][][], startRow: number, startCol: number, endRow: number, endCol: number) {
+  const result = [];
+
+  if (!path[endRow][endCol]) {
+    return result;
+  }
+
+  let curr = [endRow, endCol];
+
+  while (curr !== null) {
+    console.log("while");
+    result.unshift(curr);
+    curr = path[curr[0]][curr[1]];
+  }
+
+  return result;
+}
+
 function create2DArray(c: number) {
   const array = new Array(c);
   for (let i = 0; i < c; i++) array[i] = new Array(c);
@@ -472,7 +594,7 @@ function recursiveDivisionGrid(width: number): number[][] {
 }
 
 let walls: number[][];
-export function recursiveDivisionMaze(grid: number[][], startNode: number[], finishNode: number[]) {
+function recursiveDivisionMaze(grid: number[][], startNode: number[], finishNode: number[]) {
   if (!startNode || !finishNode || startNode === finishNode) {
     return [];
   }
@@ -610,4 +732,178 @@ function generateRandomNumber(max: number) {
     }
   }
   return randomNum;
+}
+
+
+//horizontal Maze
+function horizontalDivisionGrid(width: number): number[][] {
+  const height = width;
+  let grid = Array(height)
+    .fill(null)
+    .map(() => Array(width).fill(0));
+
+  let startNode = [0, 0];
+  let endNode = [height - 1, width - 1];
+
+  grid[startNode[0]][startNode[1]] = 2;
+  grid[endNode[0]][endNode[1]] = 3;
+  const walls = horizontalMaze(grid, startNode, endNode);
+  for (let i = 0; i < walls.length; i++) {
+    grid[walls[i][0]][walls[i][1]] = 1;
+  }
+  return grid;
+}
+
+function horizontalMaze(grid: number[][], start: number[], finish: number[]) {
+  if (!start || !finish || start === finish) {
+    return [];
+  }
+  let vertical = range(grid[0].length);
+  let horizontal = range(grid.length);
+  walls = [];
+  getHorizontalWalls(vertical, horizontal, start, finish);
+  return walls;
+}
+
+function getHorizontalWalls(vertical: number[], horizontal: number[], startNode: number[], finishNode: number[]) {
+  if (horizontal.length < 2) {
+    return;
+  }
+
+  let choice = Math.floor(Math.random() * 2);
+  for (let num of horizontal) {
+    if (choice === 0 && num % 2 !== 0) {
+      addWallHorizontal(num, vertical, startNode, finishNode);
+    }
+    if (choice === 1 && num % 2 === 0) {
+      addWallHorizontal(num, vertical, startNode, finishNode);
+    }
+  }
+}
+
+function addWallHorizontal(num: number, vertical: number[], startNode: number[], finishNode: number[]) {
+  let isStartFinish = false;
+  let tempWalls = [];
+  for (let temp of vertical) {
+    if (
+      (num === startNode[0] && temp === startNode[1]) ||
+      (num === finishNode[0] && temp === finishNode[1])
+    ) {
+      isStartFinish = true;
+      continue;
+    }
+    tempWalls.push([num, temp]);
+  }
+  if (!isStartFinish) {
+    tempWalls.splice(Math.floor(Math.random() * tempWalls.length), 1);
+  }
+  for (let wall of tempWalls) {
+    walls.push(wall);
+  }
+}
+
+//vertical Maze
+function verticalDivisionGrid(width: number): number[][] {
+  const height = width;
+  let grid = Array(height)
+    .fill(null)
+    .map(() => Array(width).fill(0));
+
+  let startNode = [0, 0];
+  let endNode = [height - 1, width - 1];
+
+  grid[startNode[0]][startNode[1]] = 2;
+  grid[endNode[0]][endNode[1]] = 3;
+  const walls = verticalMaze(grid, startNode, endNode);
+  for (let i = 0; i < walls.length; i++) {
+    grid[walls[i][0]][walls[i][1]] = 1;
+  }
+  return grid;
+}
+
+function verticalMaze(grid: number[][], startNode: number[], finishNode: number[]) {
+  if (!startNode || !finishNode || startNode === finishNode) {
+    return [];
+  }
+  let vertical = range(grid[0].length);
+  let horizontal = range(grid.length);
+  walls = [];
+  getVerticalWalls(vertical, horizontal, startNode, finishNode);
+  return walls;
+}
+
+function getVerticalWalls(vertical: number[], horizontal: number[], startNode: number[], finishNode: number[]) {
+  if (vertical.length < 2) {
+    return;
+  }
+
+  let choice = Math.floor(Math.random() * 2);
+  for (let num of vertical) {
+    if (choice === 0 && num % 2 !== 0) {
+      addVerticalWall(num, horizontal, startNode, finishNode);
+    }
+    if (choice === 1 && num % 2 === 0) {
+      addVerticalWall(num, horizontal, startNode, finishNode);
+    }
+  }
+}
+
+function addVerticalWall(num: number, horizontal: number[], startNode: number[], finishNode: number[]) {
+  let isStartFinish = false;
+  let tempWalls = [];
+  for (let temp of horizontal) {
+    if (
+      (temp === startNode[0] && num === startNode[1]) ||
+      (temp === finishNode[0] && num === finishNode[1])
+    ) {
+      isStartFinish = true;
+      continue;
+    }
+    tempWalls.push([temp, num]);
+  }
+  if (!isStartFinish) {
+    tempWalls.splice(Math.floor(Math.random() * tempWalls.length), 1);
+  }
+  for (let wall of tempWalls) {
+    walls.push(wall);
+  }
+}
+
+function randomDivisionGrid(width: number): number[][] {
+  const height = width;
+  let grid = Array(height)
+    .fill(null)
+    .map(() => Array(width).fill(0));
+
+  let startNode = [0, 0];
+  let endNode = [height - 1, width - 1];
+
+  grid[startNode[0]][startNode[1]] = 2;
+  grid[endNode[0]][endNode[1]] = 3;
+  const walls = randomMaze(grid, startNode, endNode);
+  for (let i = 0; i < walls.length; i++) {
+    grid[walls[i][0]][walls[i][1]] = 1;
+  }
+  return grid;
+}
+
+function randomMaze(grid: number[][], startNode: number[], finishNode: number[]) {
+  if (!startNode || !finishNode || startNode === finishNode) {
+    return [];
+  }
+  walls = [];
+  for (let row = 0; row < grid.length; row++) {
+    for (let col = 0; col < grid[0].length; col++) {
+      if (
+        (row === startNode[0] && col === startNode[1]) ||
+        (row === finishNode[0] && col === finishNode[1])
+      )
+        continue;
+      if (Math.random() < 0.33) {
+        walls.push([row, col]);
+      }
+    }
+  }
+  walls.sort(() => Math.random() - 0.5);
+  return walls;
 }
