@@ -1,5 +1,5 @@
 import { OrbitControls } from "@react-three/drei";
-import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Canvas, useThree } from "@react-three/fiber";
 import gsap from "gsap";
 import { button, LevaPanel, useControls, useCreateStore } from "leva";
@@ -57,7 +57,7 @@ const initialState = {
   wallColor: "#000852",
   visitColor: "turquoise",
   pathColor: "yellow",
-}
+};
 
 const store = create<storeState>(() => ({
   ...initialState,
@@ -71,16 +71,18 @@ const setRefThroughArray = () => {
     for (let j = 0; j < boxCount; j++) {
       store
         .getState()
-        .boxs.current[i][j]?.position.set(i * gap - offset, 0, j * gap - offset);
+        .boxs.current[i][j]?.position.set(
+          i * gap - offset,
+          0,
+          j * gap - offset
+        );
       if (array[i][j] == start) {
         setColor(i, j, store.getState().startColor);
         setHeight(i, j, 1.9);
-      }
-      else if (array[i][j] == end) {
+      } else if (array[i][j] == end) {
         setColor(i, j, store.getState().endColor);
         setHeight(i, j, 1.9);
-      }
-      else if (array[i][j] == wall) {
+      } else if (array[i][j] == wall) {
         setColor(i, j, store.getState().wallColor);
         setHeight(i, j, 1.9);
       } else {
@@ -98,7 +100,11 @@ export default function Path() {
   return (
     <Drawer>
       <div className="h-screen w-screen">
-        <LevaPanel hideCopyButton titleBar={{ filter: false }} store={levaPathStore} />
+        <LevaPanel
+          hideCopyButton
+          titleBar={{ filter: false }}
+          store={levaPathStore}
+        />
         <Canvas>
           <Visualizer />
           <directionalLight position={[-0.5, 3, 5]} intensity={1.5} />
@@ -106,7 +112,7 @@ export default function Path() {
         </Canvas>
       </div>
     </Drawer>
-  )
+  );
 }
 
 function Visualizer() {
@@ -132,81 +138,97 @@ function Visualizer() {
     const lister = () => {
       if (interacted == false) setInteracted(true);
       window.removeEventListener("mousedown", lister);
-    }
-    window.addEventListener("mousedown", lister)
+    };
+    window.addEventListener("mousedown", lister);
     return () => {
       window.removeEventListener("mousedown", lister);
-    }
-  },[])
-  useEffect(()=>{
+    };
+  }, []);
+  useEffect(() => {
     orbitControls.current.autoRotate = !interacted;
-  },[interacted])
+  }, [interacted]);
 
-  useControls("Controls", {
-    "Play/Pause": button(() => {
-      if (store.getState().isFinding) {
-        store.setState({ pause: !store.getState().pause });
-      } else {
-        const result = findingAlgorithm(store.getState().array, [0, 0], [store.getState().boxCount - 1, store.getState().boxCount - 1]);
-        // console.log(result);
-        animate(result.visitingOrder, result.path);
-      }
-    }),
-    Reset: button(() => {
-      reset();
-    }),
-    Count: {
-      value: 10,
-      min: 1,
-      max: 50,
-      step: 1,
-      disabled: finding,
-      onEditEnd: (v: number) => store.setState({ boxCount: v }),
+  useControls(
+    "Controls",
+    {
+      "Play/Pause": button(() => {
+        if (store.getState().isFinding) {
+          store.setState({ pause: !store.getState().pause });
+        } else {
+          const result = findingAlgorithm(
+            store.getState().array,
+            [0, 0],
+            [store.getState().boxCount - 1, store.getState().boxCount - 1]
+          );
+          // console.log(result);
+          animate(result.visitingOrder, result.path);
+        }
+      }),
+      Reset: button(() => {
+        reset();
+      }),
+      Count: {
+        value: 10,
+        min: 1,
+        max: 50,
+        step: 1,
+        disabled: finding,
+        onEditEnd: (v: number) => store.setState({ boxCount: v }),
+      },
+      Speed: {
+        value: 20,
+        min: 1,
+        max: 100,
+        step: 1,
+        onChange: (v) => {
+          store.setState({ delayTime: 1 / v });
+        },
+      },
+      Algorithm: {
+        options: {
+          bfs: bfs,
+          Dfs: dfs,
+          Dijkstra: dijkstra,
+          "A* search": aStarSearch,
+        },
+        disabled: finding,
+        onChange: (
+          v: (
+            grid: number[][],
+            start: number[],
+            end: number[]
+          ) => {
+            visitingOrder: number[][];
+            path: number[][];
+          }
+        ) => {
+          findingAlgorithm = v;
+        },
+      },
+      "Maze Generator": {
+        options: {
+          None: noWallsMaze,
+          "Recursive Division": recursiveDivisionGrid,
+          "vertical Division": horizontalDivisionGrid,
+          "Horizontal Division": verticalDivisionGrid,
+          "Random Throw": randomDivisionGrid,
+        },
+        disabled: finding,
+        onChange: (v: (h: number) => number[][]) => {
+          if (store.getState().isFinding) return;
+          store.setState({ maze: v });
+        },
+      },
+      "Regenerate Walls": button(() => {
+        setRegenerate((v) => !v);
+      }),
+      "Reset Walls": button(() => {
+        store.setState({ maze: noWallsMaze });
+        setRegenerate((v) => !v);
+      }),
     },
-    Speed: {
-      value: 20,
-      min: 1,
-      max: 100,
-      step: 1,
-      onChange: (v) => {
-        store.setState({ delayTime: 1 / v });
-      },
-    },
-    Algorithm: {
-      options: {
-        "bfs": bfs,
-        "Dfs": dfs,
-        "Dijkstra": dijkstra,
-      },
-      disabled: finding,
-      onChange: (v: (grid: number[][], start: number[], end: number[]) => {
-        visitingOrder: number[][];
-        path: number[][];
-      }) => {
-        findingAlgorithm = v;
-      },
-    },
-    "Maze Generator": {
-      options: {
-        "None": noWallsMaze,
-        "Recursive Division": recursiveDivisionGrid,
-        "vertical Division": horizontalDivisionGrid,
-        "Horizontal Division": verticalDivisionGrid,
-        "Random Throw": randomDivisionGrid,
-      },
-      disabled: finding,
-      onChange: (v: (h: number) => number[][]) => {
-        if (store.getState().isFinding) return;
-        store.setState({ maze: v });
-      },
-    },
-    "Regenerate Walls": button(() => {
-      setRegenerate((v) => !v);
-    }),
-    "Reset Walls": button(() => {
-      store.setState({ maze: noWallsMaze });
-    }),
-  }, { store: levaPathStore }, [finding]
+    { store: levaPathStore },
+    [finding]
   );
   useEffect(() => {
     store.setState({ array: [...maze(store.getState().boxCount)] });
@@ -216,7 +238,7 @@ function Visualizer() {
       if (store.getState().isFinding) {
         store.setState({ isFinding: false });
       }
-    }
+    };
   }, [boxCount, regenerate, maze]);
   return (
     <>
@@ -228,16 +250,20 @@ function Visualizer() {
           <Fragment key={i}>
             {[...Array(boxCount)].map((_, j) => {
               return (
-                <mesh key={`${i}${j}`} ref={(e) => (boxsRef.current[i][j] = e)} onClick={(e) => {
-                  e.stopPropagation();
-                  if (i == 0 && j == 0) return;
-                  if (i == boxCount - 1 && j == boxCount - 1) return;
-                  if (store.getState().array[i][j] !== wall) {
-                    makeWall(i, j);
-                  } else {
-                    makeNorm(i, j);
-                  }
-                }}>
+                <mesh
+                  key={`${i}${j}`}
+                  ref={(e) => (boxsRef.current[i][j] = e)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (i == 0 && j == 0) return;
+                    if (i == boxCount - 1 && j == boxCount - 1) return;
+                    if (store.getState().array[i][j] !== wall) {
+                      makeWall(i, j);
+                    } else {
+                      makeNorm(i, j);
+                    }
+                  }}
+                >
                   <boxBufferGeometry />
                   <meshStandardMaterial color={boxColor} />
                 </mesh>
@@ -247,7 +273,10 @@ function Visualizer() {
         );
       })}
       {/* BASE */}
-      <mesh position={[0, -0.1, 0]} scale={[boxCount * (gap + 0.1), 1, boxCount * 1.15]}>
+      <mesh
+        position={[0, -0.1, 0]}
+        scale={[boxCount * 1.15, 1, boxCount * 1.15]}
+      >
         <boxBufferGeometry />
         <meshStandardMaterial color={baseColor} />
       </mesh>
@@ -341,32 +370,53 @@ function noWallsMaze(c: number) {
 }
 
 async function animate(visitingOrder: number[][], path: number[][]) {
-  store.setState({ isFinding: true })
+  store.setState({ isFinding: true });
   setRefThroughArray();
   for (let i = 0; i < visitingOrder.length; i++) {
     if (visitingOrder[i][0] == 0 && visitingOrder[i][1] == 0) continue;
-    if (visitingOrder[i][0] == store.getState().boxCount - 1 && visitingOrder[i][1] == store.getState().boxCount - 1) continue;
+    if (
+      visitingOrder[i][0] == store.getState().boxCount - 1 &&
+      visitingOrder[i][1] == store.getState().boxCount - 1
+    )
+      continue;
     bounce(visitingOrder[i][0], visitingOrder[i][1]);
-    setColor(visitingOrder[i][0], visitingOrder[i][1], store.getState().visitColor);
+    setColor(
+      visitingOrder[i][0],
+      visitingOrder[i][1],
+      store.getState().visitColor
+    );
     await dd();
   }
   for (let i = 0; i < path.length; i++) {
     if (path[i][0] == 0 && path[i][1] == 0) continue;
-    if (path[i][0] == store.getState().boxCount - 1 && path[i][1] == store.getState().boxCount - 1) continue;
+    if (
+      path[i][0] == store.getState().boxCount - 1 &&
+      path[i][1] == store.getState().boxCount - 1
+    )
+      continue;
     bounce(path[i][0], path[i][1]);
     setColor(path[i][0], path[i][1], store.getState().pathColor);
     await dd();
   }
-  store.setState({ isFinding: false })
+  store.setState({ isFinding: false });
 }
 
-function bfs(grid: number[][], start: number[], end: number[]): { visitingOrder: number[][], path: number[][] } {
+function bfs(
+  grid: number[][],
+  start: number[],
+  end: number[]
+): { visitingOrder: number[][]; path: number[][] } {
   const rows = store.getState().boxCount;
   const cols = rows;
   const queue: number[][] = [];
   const distances: number[][] = [];
   const parents: number[][][] = [];
-  const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+  const dirs = [
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+  ];
   const path: number[][] = [];
   const visitingOrder: number[][] = [];
 
@@ -402,7 +452,14 @@ function bfs(grid: number[][], start: number[], end: number[]): { visitingOrder:
     for (const dir of dirs) {
       const newRow = row + dir[0];
       const newCol = col + dir[1];
-      if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols && grid[newRow]?.[newCol] !== 1 && distances[newRow][newCol] === -1) {
+      if (
+        newRow >= 0 &&
+        newRow < rows &&
+        newCol >= 0 &&
+        newCol < cols &&
+        grid[newRow]?.[newCol] !== 1 &&
+        distances[newRow][newCol] === -1
+      ) {
         distances[newRow][newCol] = distances[row][col] + 1;
         parents[newRow][newCol] = [row, col];
         queue.push([newRow, newCol]);
@@ -413,12 +470,21 @@ function bfs(grid: number[][], start: number[], end: number[]): { visitingOrder:
   return { visitingOrder, path: [] };
 }
 
-function dfs(grid: number[][], start: number[], end: number[]): { visitingOrder: number[][], path: number[][] } {
+function dfs(
+  grid: number[][],
+  start: number[],
+  end: number[]
+): { visitingOrder: number[][]; path: number[][] } {
   const rows = grid.length;
   const cols = grid[0]?.length || 0;
   const stack: number[][] = [];
   const parents: number[][][] = [];
-  const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+  const dirs = [
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+  ];
   const path: number[][] = [];
   const vis = create2DArray(store.getState().boxCount);
   const visitingOrder: number[][] = [];
@@ -454,7 +520,14 @@ function dfs(grid: number[][], start: number[], end: number[]): { visitingOrder:
     for (const dir of dirs) {
       const newRow = row + dir[0];
       const newCol = col + dir[1];
-      if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols && grid[newRow][newCol] !== 1 && vis[newRow][newCol] === 0) {
+      if (
+        newRow >= 0 &&
+        newRow < rows &&
+        newCol >= 0 &&
+        newCol < cols &&
+        grid[newRow][newCol] !== 1 &&
+        vis[newRow][newCol] === 0
+      ) {
         parents[newRow][newCol] = [row, col];
         stack.push([newRow, newCol]);
       }
@@ -469,10 +542,16 @@ function dijkstra(grid: number[][], start: number[], end: number[]) {
   let n = store.getState().boxCount;
   const ROW = n;
   const COL = n;
-  const distances = Array(ROW).fill(null).map(() => Array(COL).fill(Number.MAX_SAFE_INTEGER));
+  const distances = Array(ROW)
+    .fill(null)
+    .map(() => Array(COL).fill(Number.MAX_SAFE_INTEGER));
   const visitOrder: number[][] = [];
-  const visited: boolean[][] = Array(ROW).fill(null).map(() => Array(COL).fill(false));
-  const path = Array(ROW).fill(null).map(() => Array(COL).fill(null));
+  const visited: boolean[][] = Array(ROW)
+    .fill(null)
+    .map(() => Array(COL).fill(false));
+  const path = Array(ROW)
+    .fill(null)
+    .map(() => Array(COL).fill(null));
   const queue = [];
 
   // Find start node
@@ -534,7 +613,12 @@ function dijkstra(grid: number[][], start: number[], end: number[]) {
 function getNeighbors(grid: number[][], row: number, col: number) {
   const ROW = grid.length;
   const COL = grid[0].length;
-  const dirs = [[-1, 0], [0, 1], [1, 0], [0, -1]];
+  const dirs = [
+    [-1, 0],
+    [0, 1],
+    [1, 0],
+    [0, -1],
+  ];
   const neighbors = [];
 
   for (const [r, c] of dirs.map(([r, c]) => [r + row, c + col])) {
@@ -546,7 +630,13 @@ function getNeighbors(grid: number[][], row: number, col: number) {
   return neighbors;
 }
 
-function constructPath(path: number[][][], startRow: number, startCol: number, endRow: number, endCol: number) {
+function constructPath(
+  path: number[][][],
+  startRow: number,
+  startCol: number,
+  endRow: number,
+  endCol: number
+) {
   const result = [];
 
   if (!path[endRow][endCol]) {
@@ -562,6 +652,112 @@ function constructPath(path: number[][][], startRow: number, startCol: number, e
   }
 
   return result;
+}
+
+// A*
+function aStarSearch(grid: number[][], start: number[], end: number[]) {
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  const nodeParent: (number[] | null)[][] = new Array(rows)
+    .fill(null)
+    .map(() => new Array(cols).fill(null));
+  const closedList: number[][] = [];
+
+  const openList = [start];
+  const gScore = new Array(rows)
+    .fill(null)
+    .map(() => new Array(cols).fill(Number.MAX_SAFE_INTEGER));
+  gScore[start[0]][start[1]] = 0;
+
+  const fScore = new Array(rows)
+    .fill(null)
+    .map(() => new Array(cols).fill(Number.MAX_SAFE_INTEGER));
+  fScore[start[0]][start[1]] = estimateDistance(start, end);
+
+  while (openList.length > 0) {
+    // Find the node in the openList with the lowest f score
+    let currentNode = openList.reduce((a, b) =>
+      fScore[a[0]][a[1]] < fScore[b[0]][b[1]] ? a : b
+    );
+
+    // Check if we've reached the end node
+    if (currentNode[0] === end[0] && currentNode[1] === end[1]) {
+      const path = [currentNode];
+      while (nodeParent[currentNode[0]][currentNode[1]] !== null) {
+        path.unshift(nodeParent[currentNode[0]][currentNode[1]]);
+        currentNode = nodeParent[currentNode[0]][currentNode[1]];
+      }
+      return {
+        visitingOrder: closedList,
+        path,
+      };
+    }
+
+    openList.splice(openList.indexOf(currentNode), 1);
+    closedList.push(currentNode);
+
+    // Calculate tentative g scores for the neighbors of the current node
+    const neighbors = getNeighborsAstar(grid, currentNode);
+    for (let i = 0; i < neighbors.length; i++) {
+      const neighbor = neighbors[i];
+
+      if (grid[neighbor[0]][neighbor[1]] === 1) {
+        continue;
+      }
+
+      const tentativeG = gScore[currentNode[0]][currentNode[1]] + 1;
+      if (tentativeG < gScore[neighbor[0]][neighbor[1]]) {
+        gScore[neighbor[0]][neighbor[1]] = tentativeG;
+        fScore[neighbor[0]][neighbor[1]] =
+          gScore[neighbor[0]][neighbor[1]] + estimateDistance(neighbor, end);
+
+        if (
+          !openList.some(
+            (node) => node[0] === neighbor[0] && node[1] === neighbor[1]
+          )
+        ) {
+          openList.push(neighbor);
+        } else if (tentativeG >= gScore[neighbor[0]][neighbor[1]]) {
+          continue;
+        }
+
+        nodeParent[neighbor[0]][neighbor[1]] = currentNode;
+      }
+    }
+  }
+
+  // If we've exhausted all nodes and haven't reached the end, there's no path
+  return {
+    visitingOrder: closedList,
+    path: [],
+  };
+}
+
+function estimateDistance(a: number[], b: number[]) {
+  return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2);
+}
+
+function getNeighborsAstar(grid: number[][], node: number[]) {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const [x, y] = node;
+  const neighbors = [];
+
+  if (x > 0) {
+    neighbors.push([x - 1, y]);
+  }
+  if (y > 0) {
+    neighbors.push([x, y - 1]);
+  }
+  if (x < rows - 1) {
+    neighbors.push([x + 1, y]);
+  }
+  if (y < cols - 1) {
+    neighbors.push([x, y + 1]);
+  }
+
+  return neighbors;
 }
 
 function create2DArray(c: number) {
@@ -594,7 +790,11 @@ function recursiveDivisionGrid(width: number): number[][] {
 }
 
 let walls: number[][];
-function recursiveDivisionMaze(grid: number[][], startNode: number[], finishNode: number[]) {
+function recursiveDivisionMaze(
+  grid: number[][],
+  startNode: number[],
+  finishNode: number[]
+) {
   if (!startNode || !finishNode || startNode === finishNode) {
     return [];
   }
@@ -616,7 +816,13 @@ function range(len: number) {
 //dir === 0 => Horizontal
 //dir === 1 => Vertical
 
-function getRecursiveWalls(vertical: number[], horizontal: number[], grid: number[][], startNode: number[], finishNode: number[]) {
+function getRecursiveWalls(
+  vertical: number[],
+  horizontal: number[],
+  grid: number[][],
+  startNode: number[],
+  finishNode: number[]
+) {
   if (vertical.length < 2 || horizontal.length < 2) {
     return;
   }
@@ -684,7 +890,14 @@ function generateOddRandomNumber(array: number[]) {
 //dir === 0 => Horizontal
 //dir === 1 => Vertical
 
-function addWall(dir: number, num: number, vertical: number[], horizontal: number[], startNode: number[], finishNode: number[]) {
+function addWall(
+  dir: number,
+  num: number,
+  vertical: number[],
+  horizontal: number[],
+  startNode: number[],
+  finishNode: number[]
+) {
   let isStartFinish = false;
   let tempWalls = [];
   if (dir === 0) {
@@ -734,7 +947,6 @@ function generateRandomNumber(max: number) {
   return randomNum;
 }
 
-
 //horizontal Maze
 function horizontalDivisionGrid(width: number): number[][] {
   const height = width;
@@ -765,7 +977,12 @@ function horizontalMaze(grid: number[][], start: number[], finish: number[]) {
   return walls;
 }
 
-function getHorizontalWalls(vertical: number[], horizontal: number[], startNode: number[], finishNode: number[]) {
+function getHorizontalWalls(
+  vertical: number[],
+  horizontal: number[],
+  startNode: number[],
+  finishNode: number[]
+) {
   if (horizontal.length < 2) {
     return;
   }
@@ -781,7 +998,12 @@ function getHorizontalWalls(vertical: number[], horizontal: number[], startNode:
   }
 }
 
-function addWallHorizontal(num: number, vertical: number[], startNode: number[], finishNode: number[]) {
+function addWallHorizontal(
+  num: number,
+  vertical: number[],
+  startNode: number[],
+  finishNode: number[]
+) {
   let isStartFinish = false;
   let tempWalls = [];
   for (let temp of vertical) {
@@ -821,7 +1043,11 @@ function verticalDivisionGrid(width: number): number[][] {
   return grid;
 }
 
-function verticalMaze(grid: number[][], startNode: number[], finishNode: number[]) {
+function verticalMaze(
+  grid: number[][],
+  startNode: number[],
+  finishNode: number[]
+) {
   if (!startNode || !finishNode || startNode === finishNode) {
     return [];
   }
@@ -832,7 +1058,12 @@ function verticalMaze(grid: number[][], startNode: number[], finishNode: number[
   return walls;
 }
 
-function getVerticalWalls(vertical: number[], horizontal: number[], startNode: number[], finishNode: number[]) {
+function getVerticalWalls(
+  vertical: number[],
+  horizontal: number[],
+  startNode: number[],
+  finishNode: number[]
+) {
   if (vertical.length < 2) {
     return;
   }
@@ -848,7 +1079,12 @@ function getVerticalWalls(vertical: number[], horizontal: number[], startNode: n
   }
 }
 
-function addVerticalWall(num: number, horizontal: number[], startNode: number[], finishNode: number[]) {
+function addVerticalWall(
+  num: number,
+  horizontal: number[],
+  startNode: number[],
+  finishNode: number[]
+) {
   let isStartFinish = false;
   let tempWalls = [];
   for (let temp of horizontal) {
@@ -887,7 +1123,11 @@ function randomDivisionGrid(width: number): number[][] {
   return grid;
 }
 
-function randomMaze(grid: number[][], startNode: number[], finishNode: number[]) {
+function randomMaze(
+  grid: number[][],
+  startNode: number[],
+  finishNode: number[]
+) {
   if (!startNode || !finishNode || startNode === finishNode) {
     return [];
   }

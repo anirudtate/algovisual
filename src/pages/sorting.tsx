@@ -1,5 +1,5 @@
 import { OrbitControls } from "@react-three/drei";
-import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Canvas, useThree } from "@react-three/fiber";
 import gsap from "gsap";
 import { button, Leva, LevaPanel, useControls, useCreateStore } from "leva";
@@ -46,7 +46,7 @@ const initialState = {
   swapColor: "blue",
   compareColor: "red",
   sortedColor: "green",
-}
+};
 
 const store = create<storeState>(() => ({
   ...initialState,
@@ -71,7 +71,11 @@ export default function Sort() {
   return (
     <Drawer>
       <div className="h-screen w-screen">
-        <LevaPanel hideCopyButton titleBar={{ filter: false }} store={levaSortStore} />
+        <LevaPanel
+          hideCopyButton
+          titleBar={{ filter: false }}
+          store={levaSortStore}
+        />
         <Canvas>
           <Visualizer />
           <directionalLight position={[-0.5, 3, 5]} intensity={1.5} />
@@ -79,7 +83,7 @@ export default function Sort() {
         </Canvas>
       </div>
     </Drawer>
-  )
+  );
 }
 
 function Visualizer() {
@@ -101,51 +105,55 @@ function Visualizer() {
     orbitControls.current.target.set(0, barsCount / 3, 0);
   }, [width, height, barsCount]);
 
-  useControls("Controls", {
-    "Play/Pause": button(() => {
-      if (store.getState().isSorting) {
-        store.setState({ pause: !store.getState().pause });
-      } else {
-        algorithm();
-      }
-    }),
-    Reset: button(() => {
-      reset();
-    }),
-    Regenerate: button(() => {
-      setRegenerate((v) => !v);
-    }),
-    barsCount: {
-      value: 10,
-      min: 1,
-      max: 100,
-      step: 1,
-      disabled: sorting,
-      onChange: (v: number) => store.setState({ barsCount: v }),
-    },
-    Speed: {
-      value: 5,
-      min: 1,
-      max: 100,
-      step: 1,
-      onChange: (v) => {
-        store.setState({ delayTime: 1 / v });
+  useControls(
+    "Controls",
+    {
+      "Play/Pause": button(() => {
+        if (store.getState().isSorting) {
+          store.setState({ pause: !store.getState().pause });
+        } else {
+          algorithm();
+        }
+      }),
+      Reset: button(() => {
+        reset();
+      }),
+      Regenerate: button(() => {
+        setRegenerate((v) => !v);
+      }),
+      barsCount: {
+        value: 10,
+        min: 1,
+        max: 100,
+        step: 1,
+        disabled: sorting,
+        onChange: (v: number) => store.setState({ barsCount: v }),
+      },
+      Speed: {
+        value: 5,
+        min: 1,
+        max: 100,
+        step: 1,
+        onChange: (v) => {
+          store.setState({ delayTime: 1 / v });
+        },
+      },
+      Algorithm: {
+        options: {
+          "Selection Sort": selectionSort,
+          "Bubble Sort": bubbleSort,
+          "Insertion Sort": insertionSort,
+          "Merge Sort": mergeSort,
+          "Quick Sort": quickSort,
+        },
+        disabled: sorting,
+        onChange: (v: () => Promise<void>) => {
+          algorithm = v;
+        },
       },
     },
-    Algorithm: {
-      options: {
-        "Selection Sort": selectionSort,
-        "Bubble Sort": bubbleSort,
-        "Insertion Sort": insertionSort,
-        "Merge Sort": mergeSort,
-        "Quick Sort": quickSort,
-      },
-      disabled: sorting,
-      onChange: (v: () => Promise<void>) => {
-        algorithm = v;
-      },
-    },
-  }, { store: levaSortStore }, [sorting]
+    { store: levaSortStore },
+    [sorting]
   );
   useEffect(() => {
     store.setState({ array: [...randArray(barsCount)] });
@@ -156,21 +164,21 @@ function Visualizer() {
     reset();
     return () => {
       reset();
-    }
+    };
   }, [barsCount, regenerate]);
-    useEffect(() => {
+  useEffect(() => {
     const lister = () => {
       if (interacted == false) setInteracted(true);
       window.removeEventListener("mousedown", lister);
-    }
-    window.addEventListener("mousedown", lister)
+    };
+    window.addEventListener("mousedown", lister);
     return () => {
       window.removeEventListener("mousedown", lister);
-    }
-  },[])
-  useEffect(()=>{
+    };
+  }, []);
+  useEffect(() => {
     orbitControls.current.autoRotate = !interacted;
-  },[interacted])
+  }, [interacted]);
 
   return (
     <>
