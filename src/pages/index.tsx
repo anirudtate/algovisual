@@ -6,6 +6,8 @@ import { loadFull } from "tsparticles";
 import type { Engine } from "tsparticles-engine";
 import Drawer from "../utils/Drawer";
 import Footer from "../utils/Footer";
+import sortingPic from "../../public/sorting.jpg"
+import pathFindingPic from "../../public/path-finding.jpg"
 
 export default function Home() {
   return (
@@ -42,13 +44,14 @@ export default function Home() {
         </section>
         <section className="flex min-h-screen flex-col items-center justify-center md:flex-row">
           <div className="card m-2 w-80 rounded-lg border border-primary bg-base-100 shadow-xl">
-            <figure>
+            <figure className="h-52 w-80 flex items-center justify-center overflow-hidden">
               <Image
                 className="rounded-lg p-1"
                 width={400}
                 height={400}
-                src="/placeholder.png"
-                alt=""
+                src={sortingPic}
+                alt="sortingpic"
+                placeholder="blur"
               />
             </figure>
             <div className="card-body">
@@ -65,13 +68,14 @@ export default function Home() {
             </div>
           </div>
           <div className="card m-2 w-80 rounded-lg border border-primary bg-base-100 shadow-xl">
-            <figure>
+            <figure className="h-52 w-80 flex items-center justify-center overflow-hidden">
               <Image
                 className="rounded-lg p-1"
                 width={400}
                 height={400}
-                src="/placeholder.png"
-                alt=""
+                src={pathFindingPic}
+                alt="pathfindingpic"
+                placeholder="blur"
               />
             </figure>
             <div className="card-body">
@@ -121,33 +125,12 @@ function ParticlesBackground() {
             },
             shape: {
               type: "circle",
-              stroke: {
-                width: 0,
-                color: "#000000",
-              },
-              polygon: {
-                nb_sides: 5,
-              },
             },
             opacity: {
-              value: 0.8,
-              random: false,
-              anim: {
-                enable: false,
-                speed: 1,
-                opacity_min: 0.1,
-                sync: false,
-              },
+              value: 0.7,
             },
             size: {
               value: 7,
-              random: false,
-              anim: {
-                enable: false,
-                speed: 40,
-                size_min: 0.1,
-                sync: false,
-              },
             },
             line_linked: {
               enable: true,
@@ -159,58 +142,27 @@ function ParticlesBackground() {
             move: {
               enable: true,
               speed: 4,
-              direction: "none",
-              random: false,
-              straight: false,
-              out_mode: "out",
               bounce: false,
-              attract: {
-                enable: false,
-                rotateX: 600,
-                rotateY: 1200,
-              },
             },
           },
           interactivity: {
             detect_on: "canvas",
             events: {
-              onhover: {
-                enable: false,
-                mode: "repulse",
-              },
               onclick: {
                 enable: true,
-                mode: "push",
+                mode: ["push","remove"],
               },
               resize: true,
             },
             modes: {
-              grab: {
-                distance: 400,
-                line_linked: {
-                  opacity: 1,
-                },
-              },
-              bubble: {
-                distance: 400,
-                size: 40,
-                duration: 2,
-                opacity: 8,
-                speed: 3,
-              },
-              repulse: {
-                distance: 200,
-                duration: 0.4,
-              },
               push: {
                 particles_nb: 4,
               },
               remove: {
-                particles_nb: 2,
+                particles_nb: 4,
               },
             },
           },
-          retina_detect: true,
         }}
       />
     </>

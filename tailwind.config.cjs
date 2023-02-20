@@ -1,11 +1,12 @@
+const { fontFamily } = require('tailwindcss/defaultTheme')
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       fontFamily: {
-        roboto: "'Roboto', sans-serif",
-        bebas: "'Bebas Neue', sans-serif",
+        roboto: ['var(--font-roboto)', ...fontFamily.sans],
+        bebas: ['var(--font-bebas)', ...fontFamily.sans],
       },
     },
   },

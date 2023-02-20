@@ -193,7 +193,7 @@ function Visualizer() {
       {/* BASE */}
       <mesh position={[0, -0.5 / 2, 0]} scale={[barsCount * 1.5, 0.5, 1.5]}>
         <boxBufferGeometry />
-        <meshStandardMaterial color={baseColor} metalness={0} roughness={0} />
+        <meshStandardMaterial color={baseColor} />
       </mesh>
       <color args={["#222222"]} attach="background" />
     </>

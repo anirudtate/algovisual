@@ -38,9 +38,10 @@ interface storeState {
   endColor: string;
   pathColor: string;
   array: Array<Array<number>>;
+  onCLick: (i: number, j: number) => void;
 }
 
-const initialState = {
+const store = create<storeState>(() => ({
   maze: noWallsMaze,
   startColor: "red",
   endColor: "green",
@@ -57,10 +58,7 @@ const initialState = {
   wallColor: "#000852",
   visitColor: "turquoise",
   pathColor: "yellow",
-};
-
-const store = create<storeState>(() => ({
-  ...initialState,
+  onCLick: makeWall,
 }));
 
 const setRefThroughArray = () => {
@@ -184,6 +182,15 @@ function Visualizer() {
           store.setState({ delayTime: 1 / v });
         },
       },
+      // OnClick: {
+      //   options: {
+      //     Wall: makeWall,
+      //   },
+      //   disabled: finding,
+      //   onChange: (v: (i: number, j: number) => void) => {
+      //     store.setState({ onCLick: v });
+      //   },
+      // },
       Algorithm: {
         options: {
           bfs: bfs,
@@ -254,6 +261,7 @@ function Visualizer() {
                   key={`${i}${j}`}
                   ref={(e) => (boxsRef.current[i][j] = e)}
                   onClick={(e) => {
+                    if (finding) return;
                     e.stopPropagation();
                     if (i == 0 && j == 0) return;
                     if (i == boxCount - 1 && j == boxCount - 1) return;
@@ -295,9 +303,13 @@ async function reset() {
 }
 
 function makeWall(i: number, j: number) {
-  store.getState().array[i][j] = wall;
-  setColor(i, j, store.getState().wallColor);
-  setHeight(i, j, 1.9);
+  if (store.getState().array[i][j] != wall) {
+    store.getState().array[i][j] = wall;
+    setColor(i, j, store.getState().wallColor);
+    setHeight(i, j, 1.9);
+  } else {
+    makeNorm(i, j);
+  }
 }
 
 function makeNorm(i: number, j: number) {
@@ -322,7 +334,7 @@ function setHeight(i: number, j: number, h: number) {
 
 async function bounce(i: number, j: number) {
   await gsap.to(store.getState().boxs.current[i][j]?.position as any, {
-    y: 1,
+    y: 0.8,
     duration: 0.5,
     ease: "power1.out",
   });
