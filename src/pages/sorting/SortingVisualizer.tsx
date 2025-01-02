@@ -5,7 +5,7 @@ import {
   Stars,
 } from "@react-three/drei";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Group, Mesh, Vector3 } from "three";
 import { create } from "zustand";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
+import { motion } from "framer-motion";
 
 interface SortingState {
   array: number[];
@@ -87,6 +88,7 @@ const textsRef = { current: [] as (Group | null)[] };
 const beamsRef = { current: [] as (Mesh | null)[] };
 
 export default function SortingVisualizer() {
+  const [controlOpen, setControlOpen] = useState(true);
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       {/* Full screen canvas */}
@@ -98,7 +100,7 @@ export default function SortingVisualizer() {
 
       {/* Compact overlay controls */}
       <div className="absolute left-4 top-4 z-10">
-        <Card className="w-[320px] border bg-background/95 backdrop-blur-md shadow-lg">
+        <Card className="w-[350px] border bg-background/95 backdrop-blur-md shadow-lg">
           <div className="p-4 space-y-4">
             <div className="flex items-center gap-1 border-b pb-2">
               <h2 className="text-lg font-semibold">Sorting Visualizer</h2>
@@ -122,8 +124,30 @@ export default function SortingVisualizer() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setControlOpen(!controlOpen);
+                }}
+              >
+                <motion.div
+                  animate={{
+                    rotate: controlOpen ? 180 : 0,
+                  }}
+                >
+                  <ChevronDown />
+                </motion.div>
+              </Button>
             </div>
-            <Controls />
+            <motion.div
+              animate={{
+                height: controlOpen ? "auto" : "0",
+                overflow: "hidden",
+              }}
+            >
+              <Controls />
+            </motion.div>
           </div>
         </Card>
       </div>
@@ -185,7 +209,7 @@ function Controls() {
     shouldStopRef.current = true; // Signal the sorting to stop
     const newArray = Array.from(
       { length: barCount },
-      () => Math.floor(Math.random() * barCount) + 1
+      () => Math.floor(Math.random() * barCount) + 1,
     );
     setArray(newArray);
     setIsSorting(false);

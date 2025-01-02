@@ -1,6 +1,6 @@
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Group, Mesh } from "three";
 import { create } from "zustand";
 import { Button } from "@/components/ui/button";
@@ -30,10 +30,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Vector3 } from "three";
+import { motion } from "framer-motion";
 
 interface PathfindingState {
   grid: number[][];
@@ -111,7 +112,7 @@ export default function PathfindingVisualizer() {
 
       {/* Compact overlay controls */}
       <div className="absolute left-4 top-4 z-10">
-        <Card className="w-[320px] border bg-background/95 backdrop-blur-md shadow-lg">
+        <Card className="w-[350px] border bg-background/95 backdrop-blur-md shadow-lg">
           <Controls />
         </Card>
       </div>
@@ -190,6 +191,8 @@ function Controls() {
     resetNodeColors(nodesRef, newGrid);
   };
 
+  const [controlOpen, setControlOpen] = useState(true);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-1 border-b pb-2 p-4">
@@ -214,121 +217,143 @@ function Controls() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-
-      <div className="space-y-4 p-4">
-        <div className="space-y-3 flex-1">
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label className="text-sm font-medium">Algorithm</label>
-              <span className="text-xs text-muted-foreground">
-                Time Complexity:{" "}
-                {
-                  algorithmInfo[algorithm as keyof typeof algorithmInfo]
-                    .complexity
-                }
-              </span>
-            </div>
-            <Select
-              value={algorithm}
-              onValueChange={setAlgorithm}
-              disabled={isFinding && !isPaused}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select Algorithm" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(algorithmInfo).map(([key, info]) => (
-                  <SelectItem key={key} value={key}>
-                    {info.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label className="text-sm font-medium">Grid Size</label>
-              <span className="text-xs text-muted-foreground">
-                {gridSize}x{gridSize} cells
-              </span>
-            </div>
-            <Slider
-              value={[gridSize]}
-              onValueChange={([value]) => {
-                setGridSize(value);
-                generateMaze(); // Regenerate maze when grid size changes
-              }}
-              min={5}
-              max={50}
-              step={5}
-              disabled={isFinding && !isPaused}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label className="text-sm font-medium">Maze Type</label>
-            </div>
-            <Select
-              value={mazeAlgorithm}
-              onValueChange={(value) => {
-                setMazeAlgorithm(value);
-                generateMaze(value);
-              }}
-              disabled={isFinding && !isPaused}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select Maze Type" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(mazeInfo).map(([key, name]) => (
-                  <SelectItem key={key} value={key}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label className="text-sm font-medium">Speed</label>
-              <span className="text-xs text-muted-foreground">{speed}x</span>
-            </div>
-            <Slider
-              value={[speed]}
-              onValueChange={([value]) => setSpeed(value)}
-              min={1}
-              max={20}
-              step={1}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2 flex-col">
-          <Button
-            onClick={handleVisualize}
-            className="flex-1"
-            size="default"
-            variant={isPaused ? "outline" : "default"}
-          >
-            {!isFinding ? "Start Pathfinding" : isPaused ? "Resume" : "Pause"}
-          </Button>
-          <Button
-            onClick={() => {
-              shouldStopRef.current = true; // Signal the pathfinding to stop
-              generateMaze();
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            setControlOpen(!controlOpen);
+          }}
+        >
+          <motion.div
+            animate={{
+              rotate: controlOpen ? 180 : 0,
             }}
-            size="default"
-            variant="outline"
-            disabled={isFinding && !isPaused}
           >
-            Generate New Maze
-          </Button>
-        </div>
+            <ChevronDown />
+          </motion.div>
+        </Button>
       </div>
+
+      <motion.div
+        animate={{
+          height: controlOpen ? "auto" : "0",
+          overflow: "hidden",
+        }}
+      >
+        <div className="space-y-4 p-4">
+          <div className="space-y-3 flex-1">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Algorithm</label>
+                <span className="text-xs text-muted-foreground">
+                  Time Complexity:{" "}
+                  {
+                    algorithmInfo[algorithm as keyof typeof algorithmInfo]
+                      .complexity
+                  }
+                </span>
+              </div>
+              <Select
+                value={algorithm}
+                onValueChange={setAlgorithm}
+                disabled={isFinding && !isPaused}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select Algorithm" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(algorithmInfo).map(([key, info]) => (
+                    <SelectItem key={key} value={key}>
+                      {info.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Grid Size</label>
+                <span className="text-xs text-muted-foreground">
+                  {gridSize}x{gridSize} cells
+                </span>
+              </div>
+              <Slider
+                value={[gridSize]}
+                onValueChange={([value]) => {
+                  setGridSize(value);
+                  generateMaze(); // Regenerate maze when grid size changes
+                }}
+                min={5}
+                max={50}
+                step={5}
+                disabled={isFinding && !isPaused}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Maze Type</label>
+              </div>
+              <Select
+                value={mazeAlgorithm}
+                onValueChange={(value) => {
+                  setMazeAlgorithm(value);
+                  generateMaze(value);
+                }}
+                disabled={isFinding && !isPaused}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select Maze Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(mazeInfo).map(([key, name]) => (
+                    <SelectItem key={key} value={key}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">Speed</label>
+                <span className="text-xs text-muted-foreground">{speed}x</span>
+              </div>
+              <Slider
+                value={[speed]}
+                onValueChange={([value]) => setSpeed(value)}
+                min={1}
+                max={20}
+                step={1}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 flex-col">
+            <Button
+              onClick={handleVisualize}
+              className="flex-1"
+              size="default"
+              variant={isPaused ? "outline" : "default"}
+            >
+              {!isFinding ? "Start Pathfinding" : isPaused ? "Resume" : "Pause"}
+            </Button>
+            <Button
+              onClick={() => {
+                shouldStopRef.current = true; // Signal the pathfinding to stop
+                generateMaze();
+              }}
+              size="default"
+              variant="outline"
+              disabled={isFinding && !isPaused}
+            >
+              Generate New Maze
+            </Button>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }
@@ -457,10 +482,10 @@ function Scene() {
                       cell === 2
                         ? "#ef4444" // Start - Pure Red
                         : cell === 3
-                        ? "#15803d" // End - Forest Green
-                        : cell === 1
-                        ? "#312e81" // Wall - Deep Indigo
-                        : "#93c5fd" // Normal - Light Blue
+                          ? "#15803d" // End - Forest Green
+                          : cell === 1
+                            ? "#312e81" // Wall - Deep Indigo
+                            : "#93c5fd" // Normal - Light Blue
                     }
                     shininess={30}
                     specular="#404040"
@@ -468,8 +493,8 @@ function Scene() {
                       cell === 2
                         ? "#ef4444"
                         : cell === 3
-                        ? "#15803d"
-                        : "#000000"
+                          ? "#15803d"
+                          : "#000000"
                     }
                     emissiveIntensity={0.3}
                   />
@@ -487,7 +512,7 @@ function Scene() {
                 </mesh>
               </group>
             );
-          })
+          }),
         )}
       </group>
     </>

@@ -72,7 +72,7 @@ export function Home() {
 
             <motion.div
               variants={item}
-              className="mt-8 flex gap-4 justify-center"
+              className="mt-8 flex gap-4 justify-center flex-col md:flex-row"
             >
               <Link to="/sorting">
                 <Button
@@ -109,10 +109,10 @@ export function Home() {
 
       {/* Grid Section */}
       <section className="container py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           {/* Sorting Visualizer Card */}
-          <Link to="/sorting" className="group block">
-            <div className="border border-black/[0.1] dark:border-white/[0.1] flex flex-col items-start p-6 relative rounded-lg bg-card hover:bg-accent/40 transition-colors">
+          <Link to="/sorting" className="group h-full">
+            <div className="h-full border border-black/[0.1] dark:border-white/[0.1] flex flex-col items-start p-6 relative rounded-lg bg-card hover:bg-accent/40 transition-colors">
               <PlusIcon className="absolute h-6 w-6 -top-3 -left-3 text-black/40 dark:text-white/40" />
               <PlusIcon className="absolute h-6 w-6 -bottom-3 -left-3 text-black/40 dark:text-white/40" />
               <PlusIcon className="absolute h-6 w-6 -top-3 -right-3 text-black/40 dark:text-white/40" />
@@ -139,8 +139,8 @@ export function Home() {
           </Link>
 
           {/* Pathfinding Visualizer Card */}
-          <Link to="/pathfinding" className="group block">
-            <div className="border border-black/[0.1] dark:border-white/[0.1] flex flex-col items-start p-6 relative rounded-lg bg-card hover:bg-accent/40 transition-colors">
+          <Link to="/pathfinding" className="group h-full">
+            <div className="h-full border border-black/[0.1] dark:border-white/[0.1] flex flex-col items-start p-6 relative rounded-lg bg-card hover:bg-accent/40 transition-colors">
               <PlusIcon className="absolute h-6 w-6 -top-3 -left-3 text-black/40 dark:text-white/40" />
               <PlusIcon className="absolute h-6 w-6 -bottom-3 -left-3 text-black/40 dark:text-white/40" />
               <PlusIcon className="absolute h-6 w-6 -top-3 -right-3 text-black/40 dark:text-white/40" />
